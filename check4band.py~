@@ -1,0 +1,37 @@
+#check every stars has B,V,R,I band data, remove the stars which < 4 band
+
+#remove stdV21_fluxMag.dat in 5andy_M31 to redo stanartard star Flux to Mag
+
+import os
+import math
+import scipy
+import datetime
+import numpy as np
+from glob import glob
+
+def check_all():
+	os.chdir('/home/901405125/3andy_M31/')
+	fields = glob('0*')
+	for i,j in enumerate(fields):
+		os.chdir('/home/901405125/3andy_M31/{}/'.format(j))
+		stars = glob('M31_*')
+		for s,ss in enumerate(stars):
+			os.chdir('/home/901405125/3andy_M31/{}/{}'.format(j,ss))
+			files = glob('*')
+			if len(files) == 3 or len(files) == 2 or len(files) == 1:
+				os.chdir('/home/901405125/3andy_M31/{}/'.format(j))
+				os.system('rm -r /home/901405125/3andy_M31/{}/{}'.format(j,ss))
+
+check_all() # remove uncomplete data folder
+'''
+def delete_all():
+	os.chdir('/home/901405125/5andy_M31_stdstar/')
+	fields = glob('0*')
+	for i,j in enumerate(fields):
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/'.format(j))
+		band = glob('*')
+		for b in band:
+			os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}'.format(j,b))
+			os.system('rm stdV21_fluxMag.dat')
+
+delete_all()'''

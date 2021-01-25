@@ -1,0 +1,142 @@
+import os
+import math
+import scipy
+import datetime
+import numpy as np
+from glob import glob
+import matplotlib
+import matplotlib.pyplot as plt
+
+band = ['B','V','R','I']
+
+os.chdir('/home/901405125/4andy_M31/')
+fields = ['001','002','008','009','010','011','016','017','018','019','024','023','027','032','033','034','040','041','042','047','048','049']
+
+B_mag_list,V_mag_list,R_mag_list,I_mag_list = [],[],[],[]
+B_magerr_list,V_magerr_list,R_magerr_list,I_magerr_list = [],[],[],[]
+P = []
+
+for i,j in enumerate(fields):
+	os.chdir('/home/901405125/4andy_M31/{}/'.format(j))
+	stars = glob('M31_*')
+	for s,ss in enumerate(stars):
+		dataname = glob('/home/901405125/4andy_M31/{}/{}/{}/*Maglightcurve.dat'.format(j,ss,'B'))[0]
+		with open('{}'.format(dataname),'r') as list_b:
+			list_b = list_b.readlines()
+		b_mag = [float(m.split(' ')[1]) for m in list_b]
+		b_mag_err = [float(m.split(' ')[2]) for m in list_b]
+		b_phase = [float(m.split(' ')[3]) for m in list_b]
+		b_phase2 = [float(m.split(' ')[3])+1 for m in list_b]
+
+		dataname = glob('/home/901405125/4andy_M31/{}/{}/{}/*Maglightcurve.dat'.format(j,ss,'V'))[0]
+		with open('{}'.format(dataname,'r')) as list_v:
+			list_v = list_v.readlines()
+		v_mag = [float(m.split(' ')[1]) for m in list_v]
+		v_mag_err = [float(m.split(' ')[2]) for m in list_v]
+		v_phase = [float(m.split(' ')[3]) for m in list_v]
+		v_phase2 = [float(m.split(' ')[3])+1 for m in list_v]
+
+		dataname = glob('/home/901405125/4andy_M31/{}/{}/{}/*Maglightcurve.dat'.format(j,ss,'R'))[0]
+		with open('{}'.format(dataname),'r') as list_r:
+			list_r = list_r.readlines()
+		r_mag = [float(m.split(' ')[1]) for m in list_r]
+		r_mag_err = [float(m.split(' ')[2]) for m in list_r]
+		r_phase = [float(m.split(' ')[3]) for m in list_r]
+		r_phase2 = [float(m.split(' ')[3])+1 for m in list_r]
+
+		dataname = glob('/home/901405125/4andy_M31/{}/{}/{}/*Maglightcurve.dat'.format(j,ss,'I'))[0]
+		with open('{}'.format(dataname),'r') as list_i:
+			list_i = list_i.readlines()
+		i_mag = [float(m.split(' ')[1]) for m in list_i]
+		i_mag_err = [float(m.split(' ')[2]) for m in list_i]
+		i_phase = [float(m.split(' ')[3]) for m in list_i]
+		i_phase2 = [float(m.split(' ')[3])+1 for m in list_i]
+
+
+		plt.figure()
+		plt.errorbar(b_phase, b_mag, yerr = b_mag_err ,fmt='bD',label='B Mag')
+		plt.errorbar(b_phase2, b_mag, yerr = b_mag_err ,fmt='bD')
+
+		plt.errorbar(v_phase, v_mag, yerr = v_mag_err ,fmt='gD',label='V Mag')
+		plt.errorbar(v_phase2, v_mag, yerr = v_mag_err ,fmt='gD')
+
+		plt.errorbar(r_phase, r_mag, yerr = r_mag_err ,fmt='rD',label='R Mag')
+		plt.errorbar(r_phase2, r_mag, yerr = r_mag_err ,fmt='rD')
+
+		plt.errorbar(i_phase, i_mag, yerr = i_mag_err ,fmt='mD',label='I Mag')
+		plt.errorbar(i_phase2, i_mag, yerr = i_mag_err ,fmt='mD')
+		plt.legend()
+		plt.xlabel('phase')
+		plt.ylabel('4 Magnitude light curve')
+		plt.xlim(0,2)
+		plt.ylim(np.mean(v_mag)+2,np.mean(v_mag)-2)
+		#plt.ylim(int(np.mean(b_mag)+1),int(np.mean(i_mag)-1))
+		plt.title('{}\n4bands_Maglightcurve'.format(ss))
+		plt.savefig('/home/901405125/4andy_M31/4band_lightcurve/{}_4band_Maglc.png'.format(ss))
+		
+		plt.close()
+		#os.system('cp /home/901405125/4andy_M31/{}/{}/*_4band_Maglightcurve.png home/901405125/4andy_M31/4band_llightcurve')
+
+# plot PL_relation
+
+		B_mag_list.append(np.mean(b_mag))
+		V_mag_list.append(np.mean(v_mag))
+		R_mag_list.append(np.mean(r_mag))
+		I_mag_list.append(np.mean(i_mag))
+		B_magerr_list.append(np.mean(b_mag_err))
+		V_magerr_list.append(np.mean(v_mag_err))
+		R_magerr_list.append(np.mean(r_mag_err))
+		I_magerr_list.append(np.mean(i_mag_err))
+		P.append(float(ss.split('_')[3]))
+# plot
+plt.figure()
+plt.xlabel('Periods (days)')
+plt.ylabel('Magnitude')
+plt.xlim(10,100)
+plt.xscale('log')
+plt.ylim(23,16)
+
+
+plt.errorbar(P, B_mag_list, yerr = B_magerr_list ,fmt='bD',label='B Mag')
+plt.title('B band PL relation estimation')
+plt.savefig('/home/901405125/4andy_M31/B_PLrelation.png')
+
+plt.figure()
+plt.xlabel('Periods (days)')
+plt.ylabel('Magnitude')
+plt.xlim(10,100)
+plt.xscale('log')
+plt.ylim(23,16)
+plt.errorbar(P, V_mag_list, yerr = V_magerr_list ,fmt='gD',label='V Mag')
+plt.title('V band PL relation estimation')
+plt.savefig('/home/901405125/4andy_M31/V_PLrelation.png')
+
+plt.figure()
+plt.xlabel('Periods (days)')
+plt.ylabel('Magnitude')
+plt.xlim(10,100)
+plt.xscale('log')
+plt.ylim(23,16)
+plt.errorbar(P, R_mag_list, yerr = R_magerr_list ,fmt='rD',label='R Mag')
+plt.title('R band PL relation estimation')
+plt.savefig('/home/901405125/4andy_M31/R_PLrelation.png')
+
+plt.figure()
+plt.xlabel('Periods (days)')
+plt.ylabel('Magnitude')
+plt.xlim(10,100)
+plt.xscale('log')
+plt.ylim(23,16)
+plt.errorbar(P, I_mag_list, yerr = I_magerr_list ,fmt='mD',label='I Mag')
+plt.title('I band PL relation estimation')
+plt.savefig('/home/901405125/4andy_M31/I_PLrelation.png')
+
+
+
+
+
+
+
+
+
+

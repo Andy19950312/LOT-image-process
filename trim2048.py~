@@ -1,0 +1,31 @@
+# for modify the header "CCDSEC = [1:2048,1:2096]" to be "CCDSEC = [1:2048,1:2048]"
+# trimming the 2048*2096 images to be 2048*2048
+# for doing fringe correction in next step
+
+import os
+from glob import glob
+import numpy as np
+from pyraf import iraf
+from os.path import isfile, isdir, join
+from astropy.io import fits
+
+os.chdir("/home/901405125/andy_M31")
+allfield = glob('0*')
+band = ['I']
+
+os.chdir("/home/901405125/")
+os.system("mkdir andy_M31_I")
+
+for f in allfield:
+	for b in band:
+		os.system("cp /home/901405125/andy_M31/{}/{}/CCN* /home/901405125/andy_M31_I".format(f,b))
+
+allimage = glob('CCN*')
+
+for i in allimage:
+	hdul = fits.open(i)
+	XY = hdul[0].header['CCDSEC']
+	if XY == '[1:2098,1:2048]':
+		iraf.images.imutil.imcopy(input= '{}[1:2048,1:2048]'.format(i), output= '{}'.format(i))
+		iraf.images.imutil.hedit(images = '{}'.format(i),fields = 'CCDSEC',value = '[1:2048,1:2048]')
+		print(XY)

@@ -1,0 +1,54 @@
+from __future__ import division, print_function
+
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from astropy import wcs
+
+os.chdir('/home/901405125/andy_M31')
+
+allfield = glob("001")
+
+band = ['B','V','R','I']
+
+
+###
+
+for a,b in enumerate(allfield):
+	os.system('mkdir /home/901405125/2andy_M31/{}')
+
+	for i,j in enumerate(band):
+		os.system('mkdir /home/901405125/2andy_M31/{}/{}')
+
+		os.chdir('/home/901405125/andy_M31/{}/{}'.format(b,j))
+		files = glob("CCN*.fit")
+		np.savetxt('dates.dat',files, fmt='%s')
+
+		with open("/home/901405125/andy_M31/{}/{}/ref_{}.dat".format(b,j,j), 'r') as fn:
+				
+			ref_image = fn.readlines()
+		for i in ref_image:
+			i = i.replace('\n','')
+
+######## do iraf images register
+		iraf.images.immatch.wregister('@dates.dat',referenc = "{}".format(i) ,output='@dates.dat//_m')
+
+		files = glob("CCN*_m.fit")
+		np.savetxt('dates_m.dat',files, fmt='%s')
+######## adu +10000
+		iraf.images.imutil.imarith(operand1='@dates_m.dat',op=+10000,result='@dates_m.dat//_m')
+
+		os.system('mv CCN*_ed_mm.fit /home/901405125/2andy_M31/{}/{}/'.format(b,j))#only want _mm.fit
+		os.system('cp dates.dat /home/901405125/2andy_M31/{}/{}/'.format/(b,j))
+		os.system('cp {}'.format(i))
+
+		os.system('rm CCN*_ed_m.fit')
+
+		for fileName in os.listdir('/home/901405125/2andy_M31/{}/{}/'.format(b,j)):
+  		os.rename(fileName, fileName.replace("_ed_mm.fit", "_r+.fit")) #change name to original file's name
+		
+	
+
+

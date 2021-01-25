@@ -1,0 +1,323 @@
+import pyraf
+import os
+import glob
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+from decimal import *
+
+from pyraf import iraf
+from os.path import isfile, isdir, join
+from astropy.io import fits
+from collections import Counter
+
+iraf.noao()
+iraf.imred()
+iraf.ccdred()
+
+bias_list = []
+dark_list = []
+flat_list = []
+others_list = []
+allfiles = []
+sclist = []
+
+
+### rename ###
+
+def rename():
+
+	for fileName in os.listdir("."):
+  		os.rename(fileName, fileName.replace(".fts", ".fit"))
+	for fileName in os.listdir("."):
+  		os.rename(fileName, fileName.replace(".fits", ".fit"))
+	for fileName in os.listdir("."):
+  		os.rename(fileName, fileName.replace("@", "_"))
+	return
+
+
+### rename end ###
+
+### classify ###
+
+def classify():
+	allfiles = glob.glob("*.fit*")
+	
+	for i,b in enumerate(allfiles):
+		hdul = fits.open(allfiles[i])
+		A = hdul[0].header['IMAGETYP']
+		if A == 'BIAS':
+			bias_list.append(allfiles[i])
+
+		elif A == 'DARK':
+			dark_list.append(allfiles[i])
+	
+		elif A == 'FLAT':
+			flat_list.append(allfiles[i])
+		
+		elif A == 'LIGHT':
+			sclist.append(allfiles[i])
+		
+		else: 		
+			others_list.append(allfiles[i])
+			
+		hdul.close()
+	
+	print("bias")
+	print(bias_list)
+	print("dark")
+	print(dark_list)
+	print("flat")
+	print(flat_list)
+	print("sclist")
+	print(sclist)
+
+	return 
+
+### def classify end ###
+
+### def zerocombine ###
+
+def zerocombine():
+	np.savetxt('bias_list.dat',bias_list, fmt='%s')
+	print(bias_list)
+	
+	iraf.noao.imred.ccdred.zerocombine('@bias_list.dat',output='mbias.fit',combine='median', reject='minmax', ccdtype=' ',gain=1.,rdnoise=0., process="no", delete="no", scale="none")
+	
+	return
+
+
+
+
+### dark sec ###
+
+def darkcombine():
+
+	d1dark = [] #choose different sec !
+	exptime = []	
+	explist = []
+
+	for j,d in enumerate(dark_list):
+		
+		hdul = fits.open(dark_list[j])
+		E = hdul[0].header['EXPTIME']
+		if E > 0 : 
+			exptime.append(E)
+
+		else:
+			print('some bug in exptime')
+		hdul.close()
+
+	explist = list(set(exptime)) # get all different kind of dark exptime  
+	print(explist) # have all dark secs
+	
+	for j,t in enumerate(explist):
+		
+		darkchange = []
+		
+		for i,b in enumerate(dark_list):
+			hdul = fits.open(dark_list[i])
+			E = hdul[0].header['EXPTIME']
+					
+			if E == t:
+				darkchange.append(dark_list[i])
+							
+			else:
+				others_list.append(dark_list[i])	
+			hdul.close()		
+#		print(darkchange)
+						
+		np.savetxt("dark{}.dat".format(t),darkchange, fmt='%s')
+		iraf.noao.imred.ccdred.ccdproc('@dark{}.dat'.format(t),output ='@dark{}.dat//_{}bd'.format(t,t),ccdtype=' ',zerocor = "yes",darkcor="no",flatcor="no",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit')
+		
+		d1dark_bd = []
+		d1dark_bd = glob.glob("*_{}bd.fit*".format(t))
+		np.savetxt("dark{}_bd.dat".format(t),d1dark_bd, fmt='%s')
+#		print(d1dark_bd)
+	
+		iraf.noao.imred.ccdred.darkcombine("@dark{}_bd.dat".format(t),output="mdark{}.fit".format(t),combine='median', reject='minmax', ccdtype=' ', process="no", delete="no", clobber="no")
+
+		d1dark_bd[:] = []
+		darkchange[:] = []
+		
+	return ''
+
+### dark end ###
+
+### flat combine ###
+
+def flatcombine():
+	
+	mdark_list = []
+	mdark_list = glob.glob("mdark*.fit")
+
+	mdexptime = []	
+	mdexplist = []
+
+	for j,d in enumerate(mdark_list):
+		
+		hdul = fits.open(mdark_list[j])
+		E = hdul[0].header['EXPTIME']
+		if E > 1 : 
+			mdexptime.append(E)
+
+		else:
+			print('some bug in mdexptime')
+		hdul.close()
+		
+	mdexplist = list(set(mdexptime)) # get all different kind of mdark exptime
+	print(mdexplist) #0.0001 ?
+	print(flat_list)
+
+		
+	for i,b in enumerate(flat_list):
+		hdul = fits.open(flat_list[i])
+		E = hdul[0].header['EXPTIME']
+		index = np.abs( E - np.asarray(mdexplist)).argmin() # index = (np.abs(x-a)).argmin()
+		fdt = mdexplist[index]
+		print(fdt)
+
+		hdul.close()
+#		print(fdt) # get fit exptime for closest mdark (flatdarktime)
+
+		iraf.noao.imred.ccdred.ccdproc('{}'.format(b),output ='{}//_af'.format(b),ccdtype=' ',zerocor = "yes",darkcor="yes",flatcor="no",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit',dark = 'mdark{}.fit'.format(fdt))
+		
+	flat_B_list = []
+	flat_V_list = []
+	flat_R_list = []
+	flat_I_list = []
+	flat_unknow_list = []
+	
+	flat_af = glob.glob('*af.fit')
+
+	for k,f in enumerate(flat_af):
+		hdul = fits.open(flat_af[k])
+		F = hdul[0].header['FILTER']
+		if F == 'B_319144':
+			flat_B_list.append(flat_af[k])
+		elif F == 'V_319142':
+			flat_V_list.append(flat_af[k])
+		elif F == 'R_10349':
+			flat_R_list.append(flat_af[k])
+		elif F == 'I_10349':
+			flat_I_list.append(flat_af[k])
+		else:
+			flat_unknow_list.append(flat_af[k])
+	
+		hdul.close()		
+		
+	np.savetxt('flat_B.dat',flat_B_list, fmt='%s')
+	np.savetxt('flat_V.dat',flat_V_list, fmt='%s')
+	np.savetxt('flat_R.dat',flat_R_list, fmt='%s')
+	np.savetxt('flat_I.dat',flat_I_list, fmt='%s')
+
+	
+	iraf.noao.imred.ccdred.flatcombine('@flat_B.dat',output='mflat_B.fit',combine='average', reject='none', ccdtype=' ', process="no", subsets="no", delete="no", clobber="no")
+	iraf.noao.imred.ccdred.flatcombine('@flat_V.dat',output='mflat_V.fit',combine='average', reject='none', ccdtype=' ', process="no", subsets="no", delete="no", clobber="no")
+	iraf.noao.imred.ccdred.flatcombine('@flat_R.dat',output='mflat_R.fit',combine='average', reject='none', ccdtype=' ', process="no", subsets="no", delete="no", clobber="no")
+	iraf.noao.imred.ccdred.flatcombine('@flat_I.dat',output='mflat_I.fit',combine='average', reject='none', ccdtype=' ', process="no", subsets="no", delete="no", clobber="no")
+
+	return
+		
+	print('flat')
+
+### science def ###
+
+def sccombine():
+		
+	print('sccombine')
+	print(sclist)	
+
+	mdark_list = []
+	mdark_list = glob.glob("mdark*.fit")
+
+	mdexptime = []	
+	mdexplist = []
+
+	for j,d in enumerate(mdark_list):
+		
+		hdul = fits.open(mdark_list[j])
+		E = hdul[0].header['EXPTIME']
+		if E > 1 : 
+			mdexptime.append(E)
+
+		else:
+			print('some bug in mdexptime')
+		hdul.close()
+	
+	mdexplist = list(set(mdexptime)) # get all different kind of mdark exptime
+	print(mdexplist)
+
+	for i,b in enumerate(sclist):
+		hdul = fits.open(sclist[i])
+		E = hdul[0].header['EXPTIME']
+		index = np.abs( E - np.asarray(mdexplist)).argmin() # index = (np.abs(x-a)).argmin()
+		scdt = mdexplist[index]
+		
+		F = hdul[0].header['FILTER']
+		
+		if F == 'B_Asahi_2007':
+			print('reduct')
+			print(b)
+			print(E)
+			print(F)
+			print('mdark{}.fit'.format(scdt))
+			iraf.noao.imred.ccdred.ccdproc('{}'.format(b),output ='{}//_ed'.format(b),ccdtype=' ',zerocor ="yes",darkcor="yes",flatcor="yes",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit',dark = 'mdark{}.fit'.format(scdt),flat ='mflat_B.fit')				
+			
+		elif F == 'V_Asahi_2007':
+			print('reduct')
+			print(b)
+			print(E)
+			print(F)
+			iraf.noao.imred.ccdred.ccdproc('{}'.format(b),output ='{}//_ed'.format(b),ccdtype=' ',zerocor = "yes",darkcor="yes",flatcor="yes",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit',dark = 'mdark{}.fit'.format(scdt),flat = 'mflat_V.fit')
+			print('reduct')			
+			
+		elif F == 'R_Asahi_2007':
+			print('reduct')
+			print(b)
+			print(E)
+			print(F)
+			iraf.noao.imred.ccdred.ccdproc('{}'.format(b),output ='{}//_ed'.format(b),ccdtype=' ',zerocor = "yes",darkcor="yes",flatcor="yes",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit',dark = 'mdark{}.fit'.format(scdt),flat = 'mflat_R.fit')			
+			
+		elif F == 'I_Asahi_2007':
+			print('reduct')
+			print(b)
+			print(E)
+			print(F)
+			iraf.noao.imred.ccdred.ccdproc('{}'.format(b),output ='{}//_ed'.format(b),ccdtype=' ',zerocor = "yes",darkcor="yes",flatcor="yes",fixpix="no",oversca="no",trim ="no",zero = 'mbias.fit',dark = 'mdark{}.fit'.format(scdt),flat = 'mflat_I.fit')
+			
+		
+		else:
+			print('there are other filter in sclist')			
+		
+		hdul.close()
+		
+		print('finished')
+
+
+	return
+### science end ###
+
+####################### def end #######################
+
+
+### main process ###
+
+rename()
+print('rename ok')
+
+classify()
+print('classify ok')
+
+zerocombine()
+print('bias ok')
+
+darkcombine()
+print('dark ok')
+
+flatcombine()
+print('flat ok')
+
+sccombine()
+print('sccombine ok')
+

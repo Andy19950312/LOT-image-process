@@ -1,0 +1,22 @@
+import os
+import glob
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+from decimal import *
+
+from pyraf import iraf
+from os.path import isfile, isdir, join
+from astropy.io import fits
+from collections import Counter
+
+iraf.noao()
+iraf.imred()
+iraf.ccdred()
+
+im = 'CCN_M31_009-20171109_180602-I_Asahi_2007_ed.fit'
+im2 = 'CCN_M31_009-20171109_180602-I_Asahi_2007_ed2.fit'
+
+iraf.noao.imred.ccdred.ccdproc('{}'.format(im),output ='{}'.format(im2),ccdtype=' ',zerocor ="no",darkcor="no",flatcor="no",fringec = "yes",fixpix="no",oversca="no",trim ="no",zero = '',dark = '',flat = '',fringe = 'I_fringe2.fit')
+
+print(ok)

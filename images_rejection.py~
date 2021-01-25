@@ -1,0 +1,80 @@
+# reject bad seeing images in 2andy
+
+#20151003(01~19,95),
+#20160814(01~03,15),
+#20170905(01~09,47~49,45),
+#20171009(25~37,37),
+#20170829(33~47,30),
+#20171022(15~23,30),
+#20141221(22~27,24),
+
+from glob import glob
+import numpy as np
+import os
+
+
+os.system("mkdir /home/901405125/2andy_M31_rejection")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20151003")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20160814")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20170905")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20171009")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20170829")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20171022")
+os.system("mkdir /home/901405125/2andy_M31_rejection/20141221")
+
+os.chdir('/home/901405125/2andy_M31')
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+n = 0
+
+
+for f in allfield:
+	for b in band:
+		os.chdir('/home/901405125/2andy_M31/{}/{}'.format(f,b))
+		if 1 <= int(f) <= 19:
+			print(glob("CCN*20151003*"))
+			os.system("cp CCN*20151003* /home/901405125/2andy_M31_rejection/20151003")
+			n = n+len(glob("CCN*20151003*"))
+
+		if 1 <= int(f) <= 3:
+			print(glob("CCN*20160814*"))
+			os.system("cp CCN*20160814* /home/901405125/2andy_M31_rejection/20160814")
+			n = n+len(glob("CCN*20160814*"))
+
+		if 1 <= int(f) <= 9:
+			print(glob("CCN*20170905*"))
+			os.system("cp CCN*20170905* /home/901405125/2andy_M31_rejection/20170905")
+			n = n+len(glob("CCN*20170905*"))
+
+		if 47 <= int(f) <= 49:
+			print(glob("CCN*20170905*"))
+			os.system("cp CCN*20170905* /home/901405125/2andy_M31_rejection/20170905")
+			n = n+len(glob("CCN*20170905*"))
+
+		if 25 <= int(f) <= 37:
+			print(glob("CCN*20171009*"))
+			os.system("cp CCN*20171009* /home/901405125/2andy_M31_rejection/20171009")
+			n = n+len(glob("CCN*20171009*"))
+
+		if 33 <= int(f) <= 47:
+			print(glob("CCN*20170829*"))
+			os.system("cp CCN*20170829* /home/901405125/2andy_M31_rejection/20170829")
+			n = n+len(glob("CCN*20170829*"))
+
+		if 15 <= int(f) <= 23:
+			print(glob("CCN*20171022*"))
+			os.system("cp CCN*20171022* /home/901405125/2andy_M31_rejection/20171022")
+			n = n+len(glob("CCN*20171022*"))
+
+		if 22 <= int(f) <= 27:
+			print(glob("CCN*20141221*"))
+			os.system("cp CCN*20141221* /home/901405125/2andy_M31_rejection/20141221")
+			n = n+ len(glob("CCN*20141221*"))
+
+print('n=', n)
+
+
+		

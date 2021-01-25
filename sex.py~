@@ -1,0 +1,242 @@
+from astropy.io import fits
+import glob
+import numpy as np
+import os
+from pyraf import iraf
+
+# here SExtractor will read the default files: "default.param \ default.conv \ default.sex"
+
+allfits = glob.glob("*.fit*")
+
+B_list = []
+V_list = []
+R_list = []
+I_list = []
+
+for k,f in enumerate(allfits):
+	hdul = fits.open(allfits[k])
+	F = hdul[0].header['FILTER']
+	if F == 'B_Asahi_2007' or F == 'B_319144':
+		B_list.append(allfits[k])
+	elif F == 'V_Asahi_2007'or F == 'V_319142':
+		V_list.append(allfits[k])
+	elif F == 'R_Asahi_2007'or F == 'R_10349':
+		R_list.append(allfits[k])
+	elif F == 'I_Asahi_2007'or F == 'I_10349':
+		I_list.append(allfits[k])
+	else:
+		unknow_list.append(af[k])
+	hdul.close()		
+
+### B ###
+	
+m31 = B_list
+
+fwhm_list = []
+allfwhm = []
+
+for a in m31:
+	print(a)
+	os.system('sex {}'.format(a))
+	with open("output.cat", 'r') as hdu:
+        	lines = hdu.readlines()
+
+
+	useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+	good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+
+	medfwhm = np.median(good_fwhm)
+	meanfwhm = np.mean(good_fwhm)
+	
+	fwhm_list.append([a])
+	fwhm_list.append(str(medfwhm*3600))
+
+	allfwhm.append(str(medfwhm*3600))
+	print(medfwhm)
+	print(meanfwhm)
+	
+if len(fwhm_list) > 1:
+	np.savetxt("fwhm_B.dat", fwhm_list, fmt='%s')
+
+# get best fwhm image to be reference image. #
+
+	minfwhm = min(allfwhm)
+	print(minfwhm)
+	
+	ref = []	
+	for i in [i for i,x in enumerate(fwhm_list) if x == minfwhm]:
+		ref = fwhm_list[i-1]
+	print(ref)
+	 
+	if len(ref) > 0:
+		np.savetxt("ref_B.dat", ref, fmt='%s')
+
+### V
+
+m31 = V_list
+
+fwhm_list = []
+allfwhm = []
+
+for a in m31:
+	print(a)
+	os.system('sex {}'.format(a))
+	with open("output.cat", 'r') as hdu:
+        	lines = hdu.readlines()
+
+
+	useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+	good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+
+	medfwhm = np.median(good_fwhm)
+	
+	fwhm_list.append([a])
+	fwhm_list.append(str(medfwhm*3600))
+
+	allfwhm.append(str(medfwhm*3600))
+	print(medfwhm)
+if len(fwhm_list) > 1:
+	np.savetxt("fwhm_V.dat", fwhm_list, fmt='%s')
+
+# get best fwhm image to be reference image. #
+
+	minfwhm = min(allfwhm)
+	print(minfwhm)
+
+	ref = []	
+	for i in [i for i,x in enumerate(fwhm_list) if x == minfwhm]:
+		ref = fwhm_list[i-1]
+	print(ref)
+	 
+	if len(ref) > 0:
+		np.savetxt("ref_V.dat", ref, fmt='%s')
+
+### R
+
+m31 = R_list
+
+fwhm_list = []
+allfwhm = []
+
+for a in m31:
+	print(a)
+	os.system('sex {}'.format(a))
+	with open("output.cat", 'r') as hdu:
+        	lines = hdu.readlines()
+
+
+	useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+	good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+
+	medfwhm = np.median(good_fwhm)
+	
+	fwhm_list.append([a])
+	fwhm_list.append(str(medfwhm*3600))
+
+	allfwhm.append(str(medfwhm*3600))
+	print(medfwhm)
+if len(fwhm_list) > 1:
+	np.savetxt("fwhm_R.dat", fwhm_list, fmt='%s')
+
+# get best fwhm image to be reference image. #
+
+	minfwhm = min(allfwhm)
+	print(minfwhm)
+
+	ref = []	
+	for i in [i for i,x in enumerate(fwhm_list) if x == minfwhm]:
+		ref = fwhm_list[i-1]
+	print(ref)
+	 
+	if len(ref) > 0:
+		np.savetxt("ref_R.dat", ref, fmt='%s')
+### I
+
+m31 = I_list
+
+fwhm_list = []
+allfwhm = []
+
+for a in m31:
+	print(a)
+	os.system('sex {}'.format(a))
+	with open("output.cat", 'r') as hdu:
+        	lines = hdu.readlines()
+
+
+	useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+	good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+
+	medfwhm = np.median(good_fwhm)
+	
+	fwhm_list.append([a])
+	fwhm_list.append(str(medfwhm*3600))
+
+	allfwhm.append(str(medfwhm*3600))
+	print(medfwhm)
+if len(fwhm_list) > 1:
+	np.savetxt("fwhm_I.dat", fwhm_list, fmt='%s')
+
+# get best fwhm image to be reference image. #
+
+	minfwhm = min(allfwhm)
+	print(minfwhm)
+
+	ref = []	
+	for i in [i for i,x in enumerate(fwhm_list) if x == minfwhm]:
+		ref = fwhm_list[i-1]
+	print(ref)
+	 
+	if len(ref) > 0:
+		np.savetxt("ref_I.dat", ref, fmt='%s')
+
+
+
+### backup 2019/02/20 ###
+'''
+### B
+	
+band_list = B_list
+
+for i in range(len(band_list)):
+    band_list[i] = "sex " + band_list[i]
+
+sex_band_list = band_list
+print(sex_band_list)
+
+np.savetxt("m31.dat",sex_band_list, fmt='%s')
+
+with open("m31.dat",'r') as m31:
+   m31 = m31.readlines()
+
+print(m31)
+
+
+fwhm_list = []
+
+for a in m31:
+	print(a)
+	os.system('{}'.format(a))
+	with open("output.cat", 'r') as hdu:
+        	lines = hdu.readlines()
+
+
+	useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+	good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+
+	medfwhm = np.median(good_fwhm)
+	
+	fwhm_list.append([a])
+	fwhm_list.append(str(medfwhm*3600))
+	print(medfwhm)
+np.savetxt("fwhm_B.dat", fwhm_list, fmt='%s')
+'''
+
+
+
+

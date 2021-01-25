@@ -1,0 +1,106 @@
+# this code is to improve "sex.py" fwhm estimating by standard deviation #
+# 2019/10/23
+
+from astropy.io import fits
+import glob
+import numpy as np
+import os
+from pyraf import iraf
+
+# here SExtractor will read the default files: "default.param \ default.conv \ default.sex"
+
+def FWHM(band,bandlist):
+	m31 = bandlist
+	
+	img_list  = []
+	fwhm_list = []
+	mean_list = []
+	std_list  = []
+	allfwhm   = []
+
+	for a in m31:
+		print(a)
+		os.system('sex {}'.format(a))
+		with open("output.cat", 'r') as hdu:
+			lines = hdu.readlines()
+
+
+		useful_fwhm = [i.lstrip().split(' ')[1] for i in lines if i.lstrip().split(' ')[0] == '0']
+
+		good_fwhm = [float(g[:-2]) for g in useful_fwhm if g != '']
+	
+		# median and standard deviation
+		medfwhm = np.median(good_fwhm)
+		meanfwhm = np.mean(good_fwhm)
+		stdfwhm = np.std(good_fwhm)
+	
+		img_list.append([a])
+		fwhm_list.append(str(medfwhm))
+		mean_list.append(float(meanfwhm))
+		std_list.append(float(stdfwhm))
+
+		allfwhm.append(str(medfwhm))
+		print(medfwhm)
+		print(meanfwhm)
+		print(stdfwhm)
+	
+	with open("fwhm_{}.dat".format(band),"w") as file:
+		for i in range(len(m31)):
+			file.write("{} {}\n".format(m31[i],allfwhm[i],std_list[i]))
+
+	# get best fwhm image to be reference image. #
+	# remove the largest standard deviation image : img_list -> list2, allfwhm -> fwhm2 
+	
+	list2 = []
+	fwhm2  = []
+
+	for i,j in enumerate(std_list):
+		if j != max(std_list) and mean_list[i]*j < 0.5*max(std_list)*np.mean(mean_list): # select bad std*mean
+			list2.append(img_list[i]) # images list2
+			fwhm2.append(allfwhm[i])  # images fwhm list2
+
+	# find min fwhm after removed bad std
+	minfwhm = min(fwhm2)
+	print(minfwhm)
+
+	for i in range(len(list2)):
+		if fwhm2[i] == minfwhm:
+			np.savetxt("ref_{}.dat".format(band), list2[i] , fmt='%s')
+
+### def end
+
+allfits = glob.glob("*.fit*")
+
+B_list = []
+V_list = []
+R_list = []
+I_list = []
+
+for k,f in enumerate(allfits):
+	hdul = fits.open(allfits[k])
+	F = hdul[0].header['FILTER']
+	if F == 'B_Asahi_2007' or F == 'B_319144':
+		B_list.append(allfits[k])
+	elif F == 'V_Asahi_2007'or F == 'V_319142':
+		V_list.append(allfits[k])
+	elif F == 'R_Asahi_2007'or F == 'R_10349':
+		R_list.append(allfits[k])
+	elif F == 'I_Asahi_2007'or F == 'I_10349':
+		I_list.append(allfits[k])
+	else:
+		unknow_list.append(af[k])
+	hdul.close()		
+###
+if len(B_list)> 0:
+	FWHM("B",B_list)
+elif len(V_list)> 0:
+	FWHM("V",V_list)
+elif len(R_list)> 0:
+	FWHM("R",R_list)
+elif len(I_list)> 0:
+	FWHM("I",I_list)
+
+
+
+
+

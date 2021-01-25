@@ -1,0 +1,202 @@
+# this code is using for remove images background count #
+
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+import astropy.wcs as wcs
+from decimal import Decimal
+
+os.chdir('/home/901405125/21andy_M31')
+
+##############################
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+# trim image boundary #
+
+ab = 150
+'''
+##############################
+# read standard stars file (error < 0.02)
+
+with open("/home/901405125/1main/standard_star_0.02_degree.tsv",'r') as M31:
+	stars = M31.readlines()
+
+nstar = []
+### start
+
+for a,b in enumerate(allfield):
+	for i,j in enumerate(band):
+		os.chdir('/home/901405125/21andy_M31/{}/{}/'.format(b,j))
+
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+		ref = ref[0].replace("\n","").replace("_ed","_r")
+
+		hdulist = fits.open('{}'.format(ref))
+		w = wcs.WCS(hdulist[0].header, hdulist)
+
+		std = []
+
+		n = 0
+		
+
+		with open("/home/901405125/21andy_M31/{}/{}/std.dat".format(b,j),"w") as file:
+
+			for s in stars:
+				i = s.replace("\t",' ').replace("+"," ").replace("  "," ").split( )
+				ra = float(i[0])
+				dec = float(i[1])
+
+				x,y = w.all_world2pix(ra, dec, 1)
+
+				x = int(x) # x,y in iraf processing must be int type
+				y = int(y)
+	
+				
+	
+				if ab<x<(2048-ab) and ab<y<(2048-ab): # don't want outer region of stars
+					file.write("{} {} {} {} {} {} {} {} {} {} {} {}\n".format(x, y, ra, dec, i[2], i[3], i[4], i[5], i[6], i[7], i[8], i[9]))
+					n = n +1
+		nstar.append("{} {} {}".format(b,j,n))
+
+		print("{} {} standard stars :{}".format(b,j,n))
+
+with open('/home/901405125/21andy_M31/std_err0.02_number.dat','w') as number:
+	for s,ss in enumerate(nstar):
+		number.write("{}\n".format(ss))
+
+
+
+##############################
+# read standard stars file (V mag < 20)
+
+with open("/home/901405125/1main/standard_star_V20_degree.tsv",'r') as M31:
+	stars = M31.readlines()
+
+nstar = []
+### start
+
+for a,b in enumerate(allfield):
+	for i,j in enumerate(band):
+		os.chdir('/home/901405125/21andy_M31/{}/{}/'.format(b,j))
+
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+		ref = ref[0].replace("\n","").replace("_ed","_r")
+
+		hdulist = fits.open('{}'.format(ref))
+		w = wcs.WCS(hdulist[0].header, hdulist)
+
+		std = []
+
+		n = 0
+		
+
+		with open("/home/901405125/21andy_M31/{}/{}/stdV20.dat".format(b,j),"w") as file:
+
+			for s in stars:
+				i = s.replace("\t",' ').replace("+"," ").replace("  "," ").split( )
+				ra = float(i[0])
+				dec = float(i[1])
+
+				x,y = w.all_world2pix(ra, dec, 1)
+
+				x = int(x) # x,y in iraf processing must be int type
+				y = int(y)
+	
+				
+	
+				if ab<x<(2048-ab) and ab<y<(2048-ab): # don't want outer region of stars
+					file.write("{} {} {} {} {} {} {} {} {} {} {} {}\n".format(x, y, ra, dec, i[2], i[3], i[4], i[5], i[6], i[7], i[8], i[9]))
+					n = n +1
+		nstar.append("{} {} {}".format(b,j,n))
+
+		print("{} {} standard stars :{}".format(b,j,n))
+
+with open('/home/901405125/21andy_M31/std_V20_number.dat','w') as number:
+	for s,ss in enumerate(nstar):
+		number.write("{}\n".format(ss))
+
+'''
+##############################
+# read standard stars file (standard stars V < 21 )
+
+with open("/home/901405125/1main/standard_star_V21_degree.tsv",'r') as M31:
+	stars = M31.readlines()
+
+nstar = []
+### start
+
+for a,b in enumerate(allfield):
+	for i,j in enumerate(band):
+		os.chdir('/home/901405125/21andy_M31/{}/{}/'.format(b,j))
+
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+		ref = ref[0].replace("\n","").replace("_ed","_r")
+
+		hdulist = fits.open('{}'.format(ref))
+		w = wcs.WCS(hdulist[0].header, hdulist)
+
+		std = []
+
+		n = 0
+		
+
+		with open("/home/901405125/21andy_M31/{}/{}/stdV21.dat".format(b,j),"w") as file:
+
+			for s in stars:
+				i = s.replace("\t",' ').replace("+"," ").replace("  "," ").split( )
+				ra = float(i[0])
+				dec = float(i[1])
+
+				x,y = w.all_world2pix(ra, dec, 1)
+
+				x = int(x) # x,y in iraf processing must be int type
+				y = int(y)
+	
+				
+	
+				if ab<x<(2048-ab) and ab<y<(2048-ab): # don't want outer region of stars
+					file.write("{} {} {} {} {} {} {} {} {} {} {} {}\n".format(x, y, ra, dec, i[2], i[3], i[4], i[5], i[6], i[7], i[8], i[9]))
+					n = n +1
+		nstar.append("{} {} {}".format(b,j,n))
+
+		print("{} {} standard stars :{}".format(b,j,n))
+
+with open('/home/901405125/21andy_M31/std_V21_number.dat','w') as number:
+	for s,ss in enumerate(nstar):
+		number.write("{}\n".format(ss))
+
+###################################
+# copy 21andy_M31 reference images data and document files to ../5andy_M31_stdstar
+
+os.system("mkdir /home/901405125/5andy_M31_stdstar/")
+for a,b in enumerate(allfield):
+	os.system("mkdir /home/901405125/5andy_M31_stdstar/{}".format(b))
+	for i,j in enumerate(band):
+		os.system("mkdir /home/901405125/5andy_M31_stdstar/{}/{}".format(b,j))
+
+		os.chdir('/home/901405125/21andy_M31/{}/{}/'.format(b,j))
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+
+		ref = ref[0].replace("\n","").replace("_ed","_r")
+
+		os.system("cp {} /home/901405125/5andy_M31_stdstar/{}/{}".format(ref,b,j))
+		os.system("cp ref_{}.dat /home/901405125/5andy_M31_stdstar/{}/{}".format(j,b,j))
+		os.system("cp std* /home/901405125/5andy_M31_stdstar/{}/{}".format(b,j))
+		os.system("cp dates.dat /home/901405125/5andy_M31_stdstar/{}/{}".format(b,j))
+
+
+

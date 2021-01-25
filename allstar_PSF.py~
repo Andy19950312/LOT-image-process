@@ -1,0 +1,248 @@
+# this code is for data after allstar.py process
+
+import os
+import math
+import scipy
+import datetime
+import numpy as np
+from glob import glob
+from sympy import Symbol
+from scipy import stats
+from astropy.io import fits
+from astropy.table import Table
+from sympy.solvers import solve
+import matplotlib.pyplot as plt
+
+################################
+M31_field = ['001','009','010','016','017','018','024','032','033','034','040','041','042','047','048','049']
+
+band = ['B','V','R','I']
+
+################################
+
+starttime = datetime.datetime.now()
+
+M_ALL_B,M_ALL_V,M_ALL_R,M_ALL_I = [],[],[],[]
+P_ALL_B,P_ALL_V,P_ALL_R,P_ALL_I = [],[],[],[]
+
+for f in M31_field:
+	for b in band:
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(f,b))
+
+		dif_Mag_list = []
+		abs_Mag_list = []
+
+		with open("std_photdata.dat","r") as std:
+			std = std.readlines()
+		
+		for s_n in std:
+			std_mag = float(s_n.replace('\n','').split()[0])
+			dif_mag = float(s_n.replace('\n','').split()[1])
+			if std_mag < 19:
+				abs_Mag_list.append(std_mag)
+				dif_Mag_list.append(dif_mag)
+
+		x = np.array(abs_Mag_list)
+		y = np.array(dif_Mag_list)
+
+		# analysing standard dividation of dif_Mag_list from 16 mag to 21.5mag
+
+		binning = [16,16.5,17,17.5,18,18.5,19]
+		std_analys = stats.binned_statistic( x, y, 'std', bins = binning)
+		median_analys = stats.binned_statistic( x, y, 'median', bins = binning)
+		mean_analys = stats.binned_statistic( x, y, 'mean', bins = binning)
+
+		print("std_analys",std_analys[0])
+		print("median_analys",median_analys[0])
+
+		bin_nbs = range(len(binning)-1) # -1 is because binning 16.5to17 is 1
+		x_nbs = range(len(x))			
+		
+# outlier rejecttion
+		x_new = []
+		y_new = []
+		for b_n in bin_nbs:
+			for x_n in x_nbs:
+				if binning[b_n] < x[x_n] < binning[b_n+1] and 1.5*std_analys[0][b_n] > np.sqrt((abs(y[x_n] - median_analys[0][b_n])**2)):			
+					x_new.append(x[x_n])
+					y_new.append(y[x_n])
+
+
+		new_std_analys = stats.binned_statistic( x_new, y_new, 'std', bins = [16,19.0])
+		
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}'.format(f,b))
+		with open("std19_no_outlier_allstar.dat", 'w') as stdstd:
+			stdstd.write("{}".format(str(new_std_analys[0][0])))
+		with open("std19_allstar_dataanalys.dat", 'w') as ana:
+			ana.write("std {}\n".format(str(std_analys[0])))
+			ana.write("median {}\n".format(str(median_analys[0])))	
+		# select region from fitting curve
+		if len(x)>3 and len(y)>3:
+			plt.figure()    
+			             
+			f1 = np.polyfit(x_new, y_new, 0)
+			p0 = np.poly1d(f1)
+			print(p0)
+
+			yvals = p0(x)                      
+			
+			x0 = np.arange(16, 19, 0.01)
+			yvals = p0(x0)
+			plot2 = plt.plot(x_new, y_new,'b.',label='selected std star',ms=3)
+			plot1 = plt.plot(x0, yvals,'g--',label='fit line')
+			plt.xlabel('standard Magnitude')
+			plt.ylabel('M_abs - M_int')
+			plt.xlim(16,19)
+			plt.ylim(27.5,31.5)
+			plt.legend(loc=2)
+			plt.title('{} {} dif_mag value={}\n,Mag std = {}'.format(b,f,p0,new_std_analys[0][0]))
+			plt.savefig('/home/901405125/5andy_M31_stdstar/allstar_result/allstar_std/{}_{}_allstar_std19.png'.format(f,b))
+			plt.savefig('/home/901405125/5andy_M31_stdstar/{}/{}/{}_allstar_std19.png'.format(f,b,f))
+			
+			plt.close(fig='all')
+			
+
+		# read cepheids periods and detect instrument Magnitude
+
+			os.chdir('/home/901405125/4andy_M31/{}/'.format(f))
+			stars = glob("M31*")
+
+			RA_all = []
+			DEC_all= []
+			P_all = []
+			M0_all = []
+			M0_err_all = []
+
+			for s,ss in enumerate(stars):
+		        	
+				os.chdir('/home/901405125/4andy_M31/{}/{}/{}'.format(f,ss,b))
+				# RA,DEC,periods
+				ss3 = ss.split('_')
+				RA  = float(ss3[1])
+				DEC = float(ss3[2])
+				P = float(ss3[3])
+
+				with open("photdata.dat", 'r') as cep:
+					cep = cep.readlines()
+				if len(cep[0]) > 1:
+					mag0 = float(cep[0].split()[3])
+					mag0_err = float(cep[0].split()[3])
+					flux0 = float(cep[0].split()[4])
+					flux0_err = float(cep[0].split()[5])
+
+				# read differential flux, flux error and mean flux
+					JD = []
+					f_s = []
+					dif_f_err_s = [] # error ^2 in list
+					mag_s = []
+					mag_s_err = []
+					phase1 = []
+					phase2 = []
+
+					with open("lc2.data", 'r') as lc:
+						lc = lc.readlines()
+					for l in lc:
+						l = l.replace('\n','')
+						l = l.split( )                    
+						dif_f = float(l[1])
+						dif_f_err = float(l[2])
+												
+						flux = flux0 - dif_f # ref_flux - dif_flux
+								
+				# solve the fitting curve 
+						if flux > 10 :
+							x = Symbol("x")
+							M0 = solve(p0(x) -x - 2.5*np.log10(flux))
+							M0 = float(M0[0]) 
+					# Calculate error of Mag
+							M_err0 = mag0_err                         # from reference photometry error
+							M_err1 = (2.5/2.3026)*abs(dif_f_err/flux) # from dif_flux error
+							M_err2 = float(new_std_analys[0][0])                   # from ZP error
+						
+							M_err = np.sqrt(M_err0**2 + M_err1**2 + M_err2*2)
+							print(M_err)
+					#Convert from sympy.core.add.Add to numpy complex number
+							print(M0)
+							JD.append(l[0])
+							mag_s.append(M0)
+							mag_s_err.append(M_err)
+							f_s.append(flux)
+							dif_f_err_s.append(dif_f_err)
+							phase1.append((float(l[0])/P)-int(float(l[0])/P)) # JD / periods
+							phase2.append((float(l[0])/P)-int(float(l[0])/P)+1)
+
+					with open("{}_{}_{}_{}_MLC_allstar.dat".format(RA,DEC,P,b), 'w') as cep:
+						for n in range(len(mag_s)):
+							cep.write("{} {} {} {}\n".format(JD[n],mag_s[n],mag_s_err[n],phase1[n]))
+
+					with open("MLC_allstar.dat", 'w') as cep:
+						for n in range(len(mag_s)):
+							cep.write("{} {} {} {}\n".format(JD[n],mag_s[n],mag_s_err[n],phase1[n]))
+													
+		# plot Mag to phase for each cephied star
+					#ylim1,ylim2 = np.mean(mag_s)+2,np.mean(mag_s)-2
+					ylim1,ylim2 = 21, 16
+					
+					plt.figure()
+					plt.errorbar(phase1, mag_s, yerr = mag_s_err,fmt='b.',label='Mag')
+					plt.errorbar(phase2, mag_s, yerr = mag_s_err,fmt='b.',label='Mag')
+					plt.xlabel('phase')
+					plt.ylabel('Magnitude light curve')
+					plt.xlim(0,2)
+					plt.ylim(ylim1,ylim2)
+					plt.title('{}_{}_{}_Maglightcurve'.format(RA,DEC,P))
+					plt.savefig('/home/901405125/4andy_M31/{}/{}/{}_{}_{}_{}_MLC_allstar.png'.format(f,ss,RA,DEC,P,b))
+					plt.savefig('/home/901405125/4andy_M31/{}/{}/MLC_allstar.png'.format(f,ss))
+					plt.savefig('/home/901405125/5andy_M31_stdstar/allstar_result/{}/{}_MLC_allstar.png'.format(b,ss))
+					
+					plt.close(fig='all')             
+				                
+		# solve the fitting curve                                          
+					with open("std19_allstar_f2m.dat", 'w') as eq:
+					    eq.write("{}".format(str(p0(x))))
+					os.system("cp std19_allstar_f2m.dat /home/901405125/5andy_M31_stdstar/{}/{}/".format(f,b))
+					
+					mean_M0 = np.mean(mag_s)
+					
+					if b == 'B':
+						M_ALL_B.append(mean_M0)
+						P_ALL_B.append(P)
+					elif b == 'V':
+						M_ALL_V.append(mean_M0)
+						P_ALL_V.append(P)
+					elif b == 'R':
+						M_ALL_R.append(mean_M0)
+						P_ALL_R.append(P)
+					elif b == 'I':
+						M_ALL_I.append(mean_M0)
+						P_ALL_I.append(P)
+
+
+for b in band:
+	if b == 'B':
+		P_ALL,M_ALL = P_ALL_B,M_ALL_B
+	elif b == 'V':
+		P_ALL,M_ALL = P_ALL_V,M_ALL_V
+	elif b == 'R':
+		P_ALL,M_ALL = P_ALL_R,M_ALL_R
+	elif b == 'I':
+		P_ALL,M_ALL = P_ALL_I,M_ALL_I
+				
+	plt.figure()
+	plot = plt.plot(P_ALL,M_ALL, 'bo',label='Cephieds',ms=3)
+
+	plt.xlabel('periods')
+	plt.ylabel('abs_Mag')
+	plt.xlim(10,100)
+	plt.ylim(23,16)
+	plt.xscale('log')
+	plt.legend(loc=2) 
+	plt.title('{} band_allstar_PLrelation'.format(b))
+	plt.savefig('/home/901405125/4andy_M31/{}_allstar19_PLrelation.png'.format(b))
+	plt.close(fig='all')
+
+
+endtime = datetime.datetime.now()
+
+
+print('ok')

@@ -1,0 +1,73 @@
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+
+# code for reference image registion by "iraf.images.immatch.wregister"
+
+os.chdir('/home/901405125/andy_M31')
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+
+###
+
+for a,b in enumerate(allfield):
+	os.system('mkdir /home/901405125/2_1andy_M31/{}'.format(b))
+	for i,j in enumerate(band):
+		os.system('mkdir /home/901405125/2_1andy_M31/{}/{}'.format(b,j))
+
+
+### start
+
+for a,b in enumerate(allfield):
+
+	for i,j in enumerate(band):
+
+		os.system('cp /home/901405125/andy_M31/{}/{}/* /home/901405125/1main'.format(b,j))
+		os.chdir('/home/901405125/1main')		
+
+		files = glob("CCN*.fit")
+		np.savetxt('dates.dat',files, fmt='%s')
+
+		with open("/home/901405125/andy_M31/{}/{}/ref_{}.dat".format(b,j,j), 'r') as fn:
+				
+			ref_image = fn.readlines()
+		for i in ref_image:
+			i = i.replace('\n','')
+	#	print('ref {}'.format(i))
+
+			for f,ff in enumerate(files):
+	#			ff = ff.replace('\n','')
+				print('im {}'.format(ff)) 
+######## do iraf images register
+				iraf.images.immatch.wregister( input="{}".format(ff),referenc = "{}".format(i) ,output="{}//_m".format(ff))
+
+		os.system('mv CCN*_ed_m.fit* /home/901405125/2_1andy_M31/{}/{}/'.format(b,j)) #only want _mm.fit
+		os.system('mv ref_{}.dat /home/901405125/2_1andy_M31/{}/{}/'.format(j,b,j))
+		os.system('mv dates.dat /home/901405125/2_1andy_M31/{}/{}/'.format(b,j))
+		os.system('mv {} /home/901405125/2_1andy_M31/{}/{}/'.format(i,b,j))
+		os.system('mv /home/901405125/andy_M31/{}/{}/fwhm* /home/901405125/2_1andy_M31/{}/{}/'.format(b,j,b,j))
+
+		os.system('rm CCN*_ed*.fit* wregister* imxymatch* tmp*')
+		
+
+		os.chdir('/home/901405125/2_1andy_M31/{}/{}/'.format(b,j))
+		os.system('cp /home/901405125/andy_M31/{}/{}/fwhm* .'.format(b,j))
+
+		for fileName in os.listdir('.'):
+  			os.rename(fileName, fileName.replace("_ed_m.fit", "_r.fit")) #change name to original file's name
+	
+	
+
+'''		files = glob("CCN*_m.fit*")
+		for f,ff in enumerate(files):
+######## adu +10000
+			iraf.images.imutil.imarith(operand1='{}'.format(ff),op='+', operand2 = '10000',result='{}//m'.format(ff))'''	
+	
+
+

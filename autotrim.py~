@@ -1,0 +1,123 @@
+# this code is using for trim 2048*2048 to 300*300 cepheid subframes #
+
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+import astropy.wcs as wcs
+from decimal import Decimal
+
+os.chdir('/home/901405125/21andy_M31')
+
+##############################
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+# star position RaDec / Period
+
+ra  = 10.2400
+dec = 41.2889 # don't need +
+P = 35.131949
+ab = 150 # 100 means 200X200 pixels
+
+##############################
+# read Ra Dec Periods file
+with open("/home/901405125/1main/M31RaDecP.txt",'r') as M31:
+	stars = M31.readlines()
+
+##############################
+
+#for a,b in enumerate(allfield):
+#	os.system('mkdir /home/901405125/3andy_M31/{}'.format(b))
+#	for i,j in enumerate(band):
+#		os.system('mkdir /home/901405125/3andy_M31/{}/{}'.format(b,j))
+
+
+### start
+for a,b in enumerate(allfield):
+	for i,j in enumerate(band):
+		for s,ss in enumerate(stars):
+			ra  = []
+			dec = []
+			p   = []
+			print(ss)
+
+			ss = ss.replace("\t",'')
+			ss = ss.replace("+"," ")
+			star = ss.split(" ")
+
+			ra  = float(star[0])
+			dec = float(star[1])
+			P   = float(star[2])
+			print(ra,dec,P)
+
+
+			os.system('cp /home/901405125/21andy_M31/{}/{}/CCN_*_r* /home/901405125/1main'.format(b,j))
+		
+			os.chdir('/home/901405125/1main')
+
+			imgs = glob('*CCN_*{}*.f*'.format(j))
+		
+			midlist = []	
+			for m,n in enumerate(imgs):
+
+				hdulist = fits.open('{}'.format(n))
+				w = wcs.WCS(hdulist[0].header, hdulist)
+
+				hdulist.close()
+
+				x,y = w.all_world2pix(ra, dec, 1)
+
+				x = int(x) # x,y in iraf processing must be int type
+				y = int(y)	
+
+				print(x)
+				print(y)		
+
+				if ab<x<(2048-ab) and ab<y<(2048-ab): # don't want trimming outer region of images
+					iraf.images.imutil.imcopy(input= '{}[{}:{},{}:{}]'.format(n,x-ab,x+ab,y-ab,y+ab), output= '{}//c'.format(n))
+
+
+			if ab<x<(2048-ab) and ab<y<(2048-ab):  # copy trimmed images to 3andy_M31
+				for fileName in os.listdir('.'):
+		  			os.rename(fileName, fileName.replace("_rc.fit", "_ed.fit")) #change name to original file's name
+
+# create dir which format is "field"/ "M31_Ra_Dec_Period" / "Band"
+				os.system('mkdir /home/901405125/3andy_M31/{}'.format(b))
+				os.system('mkdir /home/901405125/3andy_M31/{}/M31_{}_+{}_{}'.format(b,ra,dec,P))
+				os.system('mkdir /home/901405125/3andy_M31/{}/M31_{}_+{}_{}/{}'.format(b,ra,dec,P,j))
+
+				os.system('cp /home/901405125/21andy_M31/{}/{}/*.dat /home/901405125/3andy_M31/{}/M31_{}_+{}_{}/{}'.format(b,j,b,ra,dec,P,j))
+				os.system('mv CCN_*{}*ed.fit /home/901405125/3andy_M31/{}/M31_{}_+{}_{}/{}'.format(j,b,ra,dec,P,j))
+
+			os.system('rm CCN_*')
+
+
+
+
+
+### get background median value ### 
+#			iraf.images.imutil.imstatistics(images='{}//c'.format(n) ,fields='midpt')
+#			iraf.images.imutil.imstatistics(images='{}//c'.format(n) ,fields='mode')
+
+#			hdul = fits.open("{}".format(n))
+#			data = hdul[0].data
+			
+#			print(data[:,:])
+#			mid = np.median(data) # = np.median(data.flatten())
+#			print(mid)
+
+### image subtract median value ###
+#			iraf.images.imutil.imarith(operand1="{}//c".format(n),op="-", operand2=0, result="{}//cc".format(n)) 
+			
+#			iraf.images.imutil.imarith(operand1="{}//cc".format(n),op="+", operand2=0, result="{}//cc".format(n)) 
+		
+#		hdul.close()
+
+
+
+

@@ -1,0 +1,29 @@
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+import astropy.wcs as wcs
+from decimal import Decimal
+
+os.chdir('/home/901405125/2andy_M31')
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+os.system("mkdir /home/901405125/M31_combine")
+
+for a,b in enumerate(allfield):
+	os.system("mkdir /home/901405125/M31_combine/{}".format(b))
+
+	for i,j in enumerate(band):
+
+		os.chdir("/home/901405125/2andy_M31/{}/{}".format(b,j))
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+		ref = ref[0].replace("\n","")
+
+		os.system("cp {} /home/901405125//M31_combine/{}".format(ref,b))

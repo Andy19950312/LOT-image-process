@@ -1,0 +1,346 @@
+import os
+import math
+import scipy
+import pyraf
+import datetime
+import numpy as np
+from glob import glob
+from pyraf import iraf
+from scipy import stats
+import astropy.wcs as wcs
+from astropy.io import fits
+import matplotlib.pyplot as plt
+os.chdir('/home/901405125/4andy_M31')
+
+##############################
+
+allfield = glob("0*")
+#allfield = ['001']
+
+band = ['B','V','R','I']
+#band = ['V']
+
+##############################
+with open("/home/901405125/1main/allstarlist_2.tsv",'r') as allstar:
+	allstar = allstar.readlines()
+
+# allstar for Cepheids stars
+for f in allfield:
+	os.chdir("/home/901405125/4andy_M31/{}".format(f))
+	stars = glob("M31_*")
+	for s in stars:
+		for b in band:
+			os.chdir("/home/901405125/4andy_M31/{}/{}/{}/".format(f,s,b))
+			with open("/home/901405125/4andy_M31/{}/{}/{}/ref_list".format(f,s,b),'r') as ref:
+				ref = ref.readlines()
+			ref = ref[0].replace('\n','')
+							
+			hdulist = fits.open('/home/901405125/4andy_M31/{}/{}/{}/{}'.format(f,s,b,ref))
+			w = wcs.WCS(hdulist[0].header, hdulist)
+
+			with open("/home/901405125/4andy_M31/{}/{}/{}/position.reg".format(f,s,b),"w") as file:
+				x_list,y_list = [],[]
+
+				for sss in allstar:
+					sss = sss.replace("+"," ").replace("  "," ").split()
+					ra = float(sss[0])
+					dec = float(sss[1])
+
+					x,y = w.all_world2pix(ra, dec, 1)
+
+					x = int(x) # x,y in iraf processing must be int type
+					y = int(y)
+
+					ab = 250
+	
+					if ab<x<(300-ab) and ab<y<(300-ab): # don't want outer region of stars
+						file.write("fk5;circle({}:{}:{},{}:{}:{},3\") #color=green\n"\
+						.format(sss[2],sss[3], sss[4], sss[5], sss[6], sss[7]))
+						x_list.append(x)
+						y_list.append(y)
+
+			# save x,y list
+			with open("/home/901405125/4andy_M31/{}/{}/{}/phot.data".format(f,s,b),'r') as center:
+				center = center.readlines()
+			x_cent = float(center[0].split()[0])
+			y_cent = float(center[0].split()[1])
+			with open("/home/901405125/4andy_M31/{}/{}/{}/{}.coo.dat".format(f,s,b,ref),"w") as coo:
+				coo.write("{} {}\n".format(x_cent,y_cent))
+				for xyn in range(0,len(x_list)):
+					coo.write("{} {}\n".format(x_list[xyn],y_list[xyn]))
+
+			# copy to /1main and process
+			os.system("rm /home/901405125/1main/CCN*fit*")
+			os.system("cp {} {}.coo.dat /home/901405125/1main".format(ref,ref))
+		
+			os.chdir('/home/901405125/1main')
+			# all star photometry
+			iraf.noao(_doprint=0)
+			iraf.digiphot(_doprint=0)
+			iraf.daophot(_doprint=0)
+
+			img = ref
+
+			# phot
+			iraf.noao.digiphot.daophot.phot(image ='{}'.format(img),\
+			coords ='{}.coo.dat'.format(img),\
+			output = '{}.mag.1'.format(img)) #(default: image.mag.?)
+
+			# pstselect
+			iraf.noao.digiphot.daophot.pstselect(image ='{}'.format(img),\
+			photfile= '{}.mag.1'.format(img),\
+			pstfile = '{}.pst.1'.format(img),\
+			maxnpsf = '100')
+
+			# psf
+			iraf.noao.digiphot.daophot.psf(image ='{}'.format(img),\
+			photfile= '{}.mag.1'.format(img),\
+			pstfile = '{}.pst.1'.format(img),\
+			psfimage= '{}.psf.1'.format(img) ,opstfile= '{}.pst.2'.format(img) ,groupfil= '{}.psg.1'.format(img))
+
+			# allstar
+			iraf.noao.digiphot.daophot.allstar(image ='{}'.format(img),\
+			photfile= '{}.mag.1'.format(img),\
+			psfimage= '{}.psf.1'.format(img),\
+			allstarf= '{}.als.1'.format(img) ,rejfile = '{}.arj.1'.format(img) ,subimage= '{}.sub.1'.format(img) )
+
+			os.system("cp {}*.1 /home/901405125/4andy_M31/{}/{}/{}/".format(img,f,s,b))
+			os.system("rm /home/901405125/1main/{}*".format(img))
+
+			# calculate instrument mag to flux
+				
+			with open("/home/901405125/4andy_M31/{}/{}/{}/{}.als.1".format(f,s,b,img),'r') as als:
+				als = als.readlines()
+			
+			als2 = []
+			for n,l in enumerate(als):
+				l = l.split()
+				if n > 44:
+					als2.append(l)
+			for n,l in enumerate(als2):
+							
+				if 147 < float(l[1]) < 153 and 147 < float(l[2]) < 153: #start at line 45
+					print('ok: ',l[1],l[2])
+					x_pos= float(l[1])
+					y_pos= float(l[2])
+					mag = float(l[3])
+					mag_err =float(l[4])
+					chi = float(als2[n+1][1])
+					
+			print(x_pos,y_pos,mag,mag_err)
+
+			# convert by *.mag.1 files 
+			with open("/home/901405125/4andy_M31/{}/{}/{}/{}.mag.1".format(f,s,b,img),'r') as mag1:
+				mag1 = mag1.readlines()
+			mag2 = [l for n,l in enumerate(mag1) if n > 74]
+			for n,l in enumerate(mag2):
+				if n%5 ==1:
+					if int(x_pos-1)<float(l.split()[0])<int(x_pos+1) and int(y_pos-1)<float(l.split()[0])<int(y_pos+1):
+						flux_1 = float(mag2[n+3].split()[3])
+						fluxmag_1 = float(mag2[n+3].split()[4])
+						d_m = fluxmag_1 + 2.5*np.log10(flux_1)
+			mag2 = mag - d_m
+			flux = 10**(-mag2/2.5)
+			mag_err2 = mag_err
+			flux_err  = flux*float(mag_err2)/1.085736
+
+			print(x_pos, y_pos, mag2, mag_err2, flux, flux_err)
+			# save files
+			with open("/home/901405125/4andy_M31/{}/{}/{}/photdata.dat".format(f,s,b),'w') as phot:
+				phot.write("{} {} {} {} {} {} {}".format(x_pos,y_pos,mag2,mag_err2,flux,flux_err,chi))
+
+
+'''					 
+# allstar for standard stars
+
+for f in allfield:
+	for b in band:
+		os.system("mkdir /home/901405125/5andy_M31_stdstar/{}/{}/std_data".format(f,b)) # to save  allstar processed doc files
+		
+		os.chdir("/home/901405125/5andy_M31_stdstar/{}/{}".format(f,b))
+		
+		if len(glob('/home/901405125/5andy_M31_stdstar/{}/{}/allstarinhere*')) != 1: # if no stdstar position file in here, do the process
+			with open("/home/901405125/5andy_M31_stdstar/{}/{}/ref_{}.dat".format(f,b,b),'r') as ref:
+				ref = ref.readlines()
+			ref = ref[0].replace('\n','').replace('_ed','_r')
+						
+			hdulist = fits.open('/home/901405125/5andy_M31_stdstar/{}/{}/{}'.format(f,b,ref))
+			w = wcs.WCS(hdulist[0].header, hdulist)	
+			# save 
+			os.system('rm allstatinhere*')
+			with open("/home/901405125/5andy_M31_stdstar/{}/{}/allstarinhere.tsv".format(f,b,f,b),"w") as allstarinhere:
+				allstarlist = []
+				for sss in allstar:
+					alsss = sss # original data
+					sss = sss.replace("+"," ").replace("  "," ").split()
+					ra = float(sss[0])
+					dec = float(sss[1])
+
+					x,y = w.all_world2pix(ra, dec, 1)
+
+					x = int(x) # x,y in iraf processing must be int type
+					y = int(y)
+
+					ab = 0
+
+					if ab<x<(2048-ab) and ab<y<(2048-ab): # don't want outer region of stars
+						allstarinhere.write("{}".format(alsss)) # save allstar data in this field for standard star process
+
+		with open("/home/901405125/5andy_M31_stdstar/{}/{}/allstarinhere.tsv".format(f,b,f,b),"r") as allstarinhere:
+			allstarinhere = allstarinhere.readlines()
+		os.chdir("/home/901405125/5andy_M31_stdstar/{}/{}/stdstar/".format(f,b))
+		stdstars = glob("M31_std*")
+		dif_mag = [] # dif_mag = abs_mag - int_mag
+		abs_mag = []
+		for s in stdstars:
+			abs_m = float(s.split('_')[3])
+			hdulist = fits.open('/home/901405125/5andy_M31_stdstar/{}/{}/stdstar/{}'.format(f,b,s))
+			w = wcs.WCS(hdulist[0].header, hdulist)
+
+			x_list,y_list = [],[]
+
+			for alsih in allstarinhere:
+				alsih = alsih.replace("+"," ").replace("  "," ").split()
+				ra = float(alsih[0])
+				dec = float(alsih[1])
+
+				x,y = w.all_world2pix(ra, dec, 1)
+
+				x = int(x) # x,y in iraf processing must be int type
+				y = int(y)
+
+				ab = 20
+				if ab<x<(100-ab) and ab<y<(100-ab):				
+					x_list.append(x)
+					y_list.append(y)
+			
+			# save x,y list
+
+			with open("/home/901405125/5andy_M31_stdstar/{}/{}/std_data/{}.coo.dat".format(f,b,s),"w") as coo:
+				for xyn in range(0,len(x_list)):
+					coo.write("{} {}\n".format(x_list[xyn],y_list[xyn]))
+
+			# copy to /1main and process
+			os.system("rm /home/901405125/1main/M31*fit*")
+			os.system("cp /home/901405125/5andy_M31_stdstar/{}/{}/std_data/{}.coo.dat /home/901405125/5andy_M31_stdstar/{}/{}/stdstar/{}\
+			 /home/901405125/1main/".format(f,b,s,f,b,s))
+		
+			os.chdir('/home/901405125/1main')
+
+			# all star photometry
+			iraf.noao(_doprint=0)
+			iraf.digiphot(_doprint=0)
+			iraf.daophot(_doprint=0)
+
+			img = s
+
+			# phot
+			try:
+				iraf.noao.digiphot.daophot.phot(image ='{}'.format(img),\
+				coords ='{}.coo.dat'.format(img),\
+				output = '{}.mag.1'.format(img)) #(default: image.mag.?)
+
+				# pstselect
+				iraf.noao.digiphot.daophot.pstselect(image ='{}'.format(img),\
+				photfile= '{}.mag.1'.format(img),\
+				pstfile = '{}.pst.1'.format(img),\
+				maxnpsf = '100')
+
+				# psf
+				iraf.noao.digiphot.daophot.psf(image ='{}'.format(img),\
+				photfile= '{}.mag.1'.format(img),\
+				pstfile = '{}.pst.1'.format(img),\
+				psfimage= '{}.psf.1'.format(img) ,opstfile= '{}.pst.2'.format(img) ,groupfil= '{}.psg.1'.format(img))
+
+				# allstar
+				iraf.noao.digiphot.daophot.allstar(image ='{}'.format(img),\
+				photfile= '{}.mag.1'.format(img),\
+				psfimage= '{}.psf.1'.format(img),\
+				allstarf= '{}.als.1'.format(img) ,rejfile = '{}.arj.1'.format(img) ,subimage= '{}.sub.1'.format(img) )
+
+				os.system("cp {}*.1 /home/901405125/5andy_M31_stdstar/{}/{}/std_data/".format(s,f,b))
+				os.system("rm /home/901405125/1main/{}*".format(img))
+
+
+				# we have allstar output file, then we can calculate diff_mag = 
+				
+				with open("/home/901405125/5andy_M31_stdstar/{}/{}/std_data/{}.als.1".format(f,b,s),'r') as als:
+					als = als.readlines()
+			
+				als2 = []
+				for n,l in enumerate(als):
+					l = l.split()
+					if n > 43:
+						als2.append(l)
+				for n,l in enumerate(als2):
+					print(float(l[1]),float(l[2]))			
+					if 47 < float(l[1]) < 53 and 47 < float(l[2]) < 53: #start at line 45
+						print('ok: ',l[1],l[2])
+						x_pos= float(l[1])
+						y_pos= float(l[2])
+						mag = float(l[3])
+					
+						print(x_pos,y_pos,mag)
+
+				# convert by *.mag.1 files 
+						with open("/home/901405125/5andy_M31_stdstar/{}/{}/std_data/{}.mag.1".format(f,b,s),'r') as mag1:
+							mag1 = mag1.readlines()
+						mag2 = [l for n,l in enumerate(mag1) if n > 74]
+						for n,l in enumerate(mag2):
+							if n%5 ==1:
+								if int(x_pos-1)<float(l.split()[0])<int(x_pos+1) and int(y_pos-1)<float(l.split()[0])<int(y_pos+1):
+									flux_1 = float(mag2[n+3].split()[3])
+									fluxmag_1 = float(mag2[n+3].split()[4])
+									d_m = fluxmag_1 + 2.5*np.log10(flux_1)
+
+									mag2 = mag - d_m
+									flux = 10**(-mag2/2.5)						
+									dif_m = abs_m - mag2
+
+									abs_mag.append(abs_m)
+									dif_mag.append(dif_m)
+									print(x_pos, y_pos, abs_m, dif_m)
+			except:
+				print("problem", s)
+		
+		# save files
+		with open("/home/901405125/5andy_M31_stdstar/{}/{}/std_photdata.dat".format(f,b),'w') as std_phot:
+			for n,abs_m in enumerate(abs_mag):			
+				std_phot.write("{} {}\n".format(abs_m,dif_mag[n]))
+		# plot
+		plt.figure()
+		plot = plt.plot(abs_mag,dif_mag, 'b.')
+
+		plt.xlabel('abs_Mag')
+		plt.ylabel('dif_Mag')
+		plt.xlim(16,22)
+		plt.ylim(np.mean(dif_mag)-2,np.mean(dif_mag)+2) 
+		plt.title('standard stars in {} {}'.format(f,b))
+		plt.savefig('/home/901405125/5andy_M31_stdstar/{}/{}/stdstar_{}_{}.png'.format(f,b,f,b))
+
+		os.system("cp /home/901405125/5andy_M31_stdstar/{}/{}/stdstar_{}_{}.png /home/901405125/5andy_M31_stdstar/stdstar_plot".format(f,b,f,b))             
+
+		print("finish {} {} stdstar allstar phot".format(f,b))
+'''		
+'''
+# compare to sex output.cat
+
+with open("/home/901405125/1main/output.cat",'r') as xyp:
+	xyp = xyp.readlines()
+with open("/home/901405125/1main/position_sex.reg","w") as pos:
+	for j in xyp:
+		j = j.replace("  "," ").split()
+		
+		x = float(j[0])
+		y = float(j[1])
+		#print(x,y)
+		pos.write("IMAGE;circle({},{},5) #color=orange\n".format(x,y))
+'''
+
+# iraf packages
+#addstar      daoedit      daotest      fitskypars@  nstar        pconvert     pexamine     photpars@    psf          seepsf
+#allstar      daofind      datapars@    group        pcalc        pdump        pfmerge      prenumber    psort        setimpars
+#centerpars@  daopars@     findpars@    grpselect    pconcat      peak         phot         pselect      pstselect    substar
+
+
+

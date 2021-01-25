@@ -1,0 +1,37 @@
+# this code is using for trim 2048*2048 to 100*100 cepheid reference subframes #
+
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+import astropy.wcs as wcs
+from decimal import Decimal
+
+os.chdir('/home/901405125/4andy_M31')
+
+##############################
+
+allfield = glob("0*")
+
+band = ['B','V','R','I']
+
+for a,b in enumerate(allfield):
+	os.chdir('/home/901405125/4andy_M31/{}/'.format(b))
+	stars = glob('M31_*')
+	for s,ss in enumerate(stars):
+		for i,j in enumerate(band):
+
+			with open('/home/901405125/4andy_M31/{}/{}/{}/ref_list'.format(b,ss,j),'r')as ref:
+				ref = ref.readlines()
+			ref = ref[0]
+			print(ref)
+			os.system('cp /home/901405125/4andy_M31/{}/{}/{}/{} /home/901405125/1main'.format(b,ss,j,ref))
+
+			os.chdir('/home/901405125/1main')
+				
+			iraf.images.imutil.imcopy(input= '{}[100:200,100:200]'.format(ref), output= 'ref_100.fit')
+			os.system('cp /home/901405125/1main/ref_100.fit /home/901405125/4andy_M31/{}/{}/{}/'.format(b,ss,j))
+			os.system('rm CCN_* ref_100.fit')
+

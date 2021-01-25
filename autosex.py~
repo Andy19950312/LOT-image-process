@@ -1,0 +1,22 @@
+# to do sex.py autometicly
+
+import glob
+import numpy as np
+import os
+
+os.chdir('/home/901405125/21andy_M31')
+
+allfield = glob.glob("0*")
+
+band = ['B','V','R','I']
+
+###
+for a,b in enumerate(allfield):
+	for i,j in enumerate(band):
+
+		os.system('cp /home/901405125/1main/sex_1.py /home/901405125/21andy_M31/{}/{}/ '.format(b,j))
+		os.system('cp /home/901405125/1main/default.* /home/901405125/21andy_M31/{}/{}/'.format(b,j))
+		os.chdir('/home/901405125/21andy_M31/{}/{}'.format(b,j))
+		os.system('python sex_image.py') # os.system('python sex.py')
+		os.system('rm sex_1.py default.*')
+

@@ -1,0 +1,416 @@
+import os
+import math
+import scipy
+import datetime
+import numpy as np
+from glob import glob
+from sympy import Symbol
+from scipy import stats
+from astropy.io import fits
+from astropy.table import Table
+from sympy.solvers import solve
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from astropy.io.fits import getdata
+from scipy import special, optimize
+from photutils.background import MMMBackground
+from photutils.psf import BasicPSFPhotometry, DAOPhotPSFPhotometry, IntegratedGaussianPRF, DAOGroup
+from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
+from astropy.stats import gaussian_sigma_to_fwhm
+#!/usr/bin/env python
+
+###################################
+# B band
+
+os.chdir('/home/901405125/5andy_M31_stdstar/')
+
+
+def flux_mag(M31_field):
+	print('Start {}'.format(M31_field))
+	band = ['B']
+
+	for i,j in enumerate(band):
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(M31_field,j))
+
+		dif_Mag_list = []
+		abs_Mag_list = []
+
+#		with open("std.dat","r") as std:
+#		    std = std.readlines()
+
+		with open("ref_{}.dat".format(j), 'r') as ref:
+			ref = ref.readlines()
+		ref = ref[0].replace("\n","").replace("_ed","_r")
+		
+		# read stdV21_fluxMag.dat if it exist
+		# os.system("rm stdV21_fluxMag.dat*")
+
+		if len(glob("stdV21_fluxMag.dat*")) > 0 :
+			with open("stdV21_fluxMag.dat", 'r') as stdV21_fluxMag:
+				stdV21_fluxMag = stdV21_fluxMag.readlines()
+			for stdstar in stdV21_fluxMag:
+				dif_Mag_list.append(float(stdstar.split()[2]) - float(stdstar.split()[1]))
+				abs_Mag_list.append(float(stdstar.split()[2]))
+			
+		else:
+			with open("stdV21_fluxMag.dat", 'w') as flux:
+				os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/stdstar/'.format(M31_field,j))
+				std = glob("M31*")
+				
+				for s in std:
+					t1 = datetime.datetime.now()
+
+					dif_M = 0
+					i = s.split('_')
+					abs_V_mag = float(i[3].replace(".fit",""))
+
+					fname = '/home/901405125/5andy_M31_stdstar/{}/{}/stdstar/{}'.format(b,j,s)
+					data = getdata(fname)
+					image = data[0:300,0:300]
+
+					mmm_bkg = MMMBackground()
+					fitter = LevMarLSQFitter()
+
+					FWHM = 3.0 #5.0
+					sigma_psf = FWHM/gaussian_sigma_to_fwhm
+					daogroup = DAOGroup(3.0*sigma_psf*gaussian_sigma_to_fwhm) #3.0
+  
+					psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
+					psf_model.x_0.fixed = True
+					psf_model.y_0.fixed = True
+		
+					shift_starflux = []
+								
+				# 5*5
+					xshift = np.arange(-2,2,1)
+					yshift = np.arange(-2,2,1) 	   
+					for x_s in xshift:
+						for y_s in yshift:
+							pos = Table(names=['x_0', 'y_0'], data=[[150 + x_s],[150 + y_s]])
+							photometry = BasicPSFPhotometry(group_maker=daogroup,bkg_estimator=mmm_bkg,psf_model=psf_model,
+										fitter=LevMarLSQFitter(),fitshape=(5,5),aperture_radius=5.)
+							rt = photometry(image=image, init_guesses=pos)
+
+							star_flux = float(rt['flux_fit'][0])
+							shift_starflux.append(star_flux)
+					max_starflux = np.max(shift_starflux) # get max flux value
+					star_flux = max_starflux
+					print(star_flux)
+
+					t2 = datetime.datetime.now()
+					print(t2 -t1)
+					# solved negative flux 
+					if star_flux > 100:
+						V_mag = -2.5*np.log10(star_flux) +29.5
+
+						flux.write("{} {} {}\n"
+						       .format(star_flux, V_mag, abs_V_mag))
+
+						dif_M = abs_V_mag - V_mag
+
+					if -5 < dif_M < 5 and dif_M != 0:
+						dif_Mag_list.append(float(dif_M))
+						abs_Mag_list.append(abs_V_mag)
+
+		x = np.array(abs_Mag_list)
+		y = np.array(dif_Mag_list)
+
+		# analysing standard dividation of dif_Mag_list from 16 mag to 21.5mag
+
+		binning = [16,16.5,17,17.5,18,18.5,19,19.5,20,20.5,21,21.5]
+		std_analys = stats.binned_statistic( x, y, 'std', bins = binning)
+		median_analys = stats.binned_statistic( x, y, 'median', bins = binning)
+		mean_analys = stats.binned_statistic( x, y, 'mean', bins = binning)
+
+		print("std_analys",std_analys[0])
+		print("median_analys",median_analys[0])
+
+		bin_nbs = range(len(binning)-1) # -1 is because binning 16.5to17 is 1
+		x_nbs = range(len(x))			
+		
+# outlier rejecttion
+		x_new = []
+		y_new = []
+		for b_n in bin_nbs:
+			for x_n in x_nbs:
+				if binning[b_n] < x[x_n] < binning[b_n+1] and 2*std_analys[0][b_n] > np.sqrt((abs(y[x_n] - median_analys[0][b_n])**2)):			
+					x_new.append(x[x_n])
+					y_new.append(y[x_n])
+
+# set 19.5 mag for fitting limit
+		x_lim = []
+		y_lim = []
+		
+		for n_new in range(len(x_new)):
+			if x_new[n_new] < 19.0:
+				x_lim.append(x_new[n_new])
+				y_lim.append(y_new[n_new])
+		x = x_new
+		y = y_new
+
+#save
+		with open("stdV21_PSF_dataanalys.dat", 'w') as ana:
+			ana.write("std {}\n".format(str(std_analys[0])))
+			ana.write("median {}\n".format(str(median_analys[0])))	
+	
+		# select region from fitting curve 
+		if len(x)>2 and len(y)>2:
+			plt.figure()                       
+			f1 = np.polyfit(x, y, 0)
+			p0 = np.poly1d(f1)
+			print(p0)
+
+			yvals = p0(x)                      
+			x0 = np.arange(16, 21, 0.01)
+			
+			yvals = p0(x0)
+			plot2 = plt.plot(abs_Mag_list,dif_Mag_list,'b.',label='original std star',ms=3)
+			plot1 = plt.plot(x0, yvals,'y--',label='fit line')
+			plt.xlabel('absolute Magnitude')
+			plt.ylabel('diff Mag')
+			plt.xlim(16,22)
+			plt.ylim(-5,5)
+			plt.legend(loc=2)
+			plt.title('{} {} std star\n{}'.format(b,j,p0))
+			plt.savefig('/home/901405125/5andy_M31_stdstar/{}/{}/basicPSF_{}_V21_F2M.png'.format(b,j,b))
+			plt.close(fig='all')
+
+		x = x_lim
+		y = y_lim
+		print(len(x),len(x_new))
+		if len(x)>2 and len(y)>2:
+			plt.figure()                       
+			f1 = np.polyfit(x, y, 0)
+			p0 = np.poly1d(f1)
+			print(p0)
+
+			yvals = p0(x)                      
+			
+			x0 = np.arange(16, 21, 0.01)
+			yvals = p0(x0)
+			plot2 = plt.plot(x_new, y_new,'g.',label='selected std star',ms=3)
+			plot1 = plt.plot(x0, yvals,'r--',label='fit line')
+			plt.xlabel('absolute Magnitude')
+			plt.ylabel('diff Mag')
+			plt.xlim(16,22)
+			plt.ylim(-5,5)
+			plt.legend(loc=2)
+			plt.title('{} {} no outliers std star\nfit value={},Mag limt = 19.0'.format(b,j,p0))
+			plt.savefig('/home/901405125/5andy_M31_stdstar/{}/{}/basicPSF_{}_V21_F2M_new.png'.format(b,j,b))
+			os.system("cp /home/901405125/5andy_M31_stdstar/{}/{}/basicPSF* /home/901405125/5andy_M31_stdstar/{}_result/PSF_V21std_F2M".format(b,j,j))
+			plt.close(fig='all')
+# read cepheids periods and detect instrument Magnitude
+
+			os.chdir('/home/901405125/4andy_M31/{}/'.format(M31_field))
+			stars = glob("M31*")
+
+			RA_all = []
+			DEC_all= []
+			P_all = []
+			M0_all = []
+			M0_err_all = []
+
+			for s,ss in enumerate(stars):
+		        
+				os.chdir('/home/901405125/4andy_M31/{}/{}/{}'.format(M31_field,ss,j))
+				# RA,DEC,periods
+				ss3 = ss.split('_')
+				RA  = float(ss3[1])
+				DEC = float(ss3[2])
+				P = float(ss3[3])                
+
+				# do psf photometry in ref.fit 150 150
+				ref = ref.replace("_r","_ed")
+				with open("phot.data", 'r') as phot:
+				    phot = phot.readlines()
+				phot = phot[0].split(' ')
+				X = float(phot[2])
+				Y = float(phot[3])
+
+				shift_starflux = []
+				
+				fname = '/home/901405125/4andy_M31/{}/{}/{}/{}'.format(M31_field,ss,j,ref)
+				data = getdata(fname)
+				mmm_bkg = MMMBackground()
+				fitter = LevMarLSQFitter()
+
+				FWHM = 3.0 #5.0
+				sigma_psf = FWHM/gaussian_sigma_to_fwhm
+				daogroup = DAOGroup(3.0*sigma_psf*gaussian_sigma_to_fwhm) #3.0
+
+				psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
+				psf_model.x_0.fixed = True
+				psf_model.y_0.fixed = True
+				image = data[1:301,0:301]
+				
+				# 7*7
+				xshift = np.arange(-2,2,1)
+				yshift = np.arange(-2,2,1) 	   
+				for x_s in xshift:
+					for y_s in yshift:
+						pos = Table(names=['x_0', 'y_0'], data=[[X + x_s],[Y + y_s]])
+						photometry = BasicPSFPhotometry(group_maker=daogroup,bkg_estimator=mmm_bkg,psf_model=psf_model,
+									fitter=LevMarLSQFitter(),fitshape=(5,5),aperture_radius=5.)
+						rt = photometry(image=image, init_guesses=pos)
+
+						star_flux = float(rt['flux_fit'][0])
+						shift_starflux.append(star_flux)
+				max_starflux = np.max(shift_starflux) # get max flux value
+				star_flux = max_starflux
+				print(star_flux)
+	# read differential flux, flux error and mean flux
+
+				f_s = []
+				dif_f_err_s = [] # error ^2 in list
+				mag_s = []
+				phase1 = []
+				phase2 = []
+
+				with open("lc1.data", 'r') as lc:
+					lc = lc.readlines()
+				for l in lc:
+					l = l.replace('\n','')
+					l = l.split( )                    
+					dif_f = float(l[1])
+					dif_f_err = float(l[2])
+
+					flux = star_flux - dif_f # ref_flux - dif_flux
+					
+				# solve the fitting curve 
+					if flux > 1:               
+						x = Symbol("x")
+						M0 = solve(p0(x) -x +29.5 - 2.5*np.log10(flux))
+						M0 = float(M0[0]) #Convert from sympy.core.add.Add to numpy complex number
+						print(M0)
+						mag_s.append(M0)
+						f_s.append(flux)
+						dif_f_err_s.append(dif_f_err)
+						phase1.append((float(l[0])/P)-int(float(l[0])/P)) # JD / periods
+						phase2.append((float(l[0])/P)-int(float(l[0])/P)+1)
+			        
+				with open("{}_{}_{}_Maglightcurve.dat".format(RA,DEC,P), 'w') as cep:
+					for n in range(len(mag_s)):
+						
+						cep.write("{} {} {} {}\n".format(f_s[n],dif_f_err_s[n],mag_s[n],phase1[n]))
+
+							        
+	# plot Mag to phase for each cephied star
+				plt.figure()
+				plt.plot(phase1,mag_s,'b.',label='Mag')
+				plt.plot(phase2,mag_s,'b.',label='Mag')
+				plt.xlabel('phase')
+				plt.ylabel('Magnitude light curve')
+				plt.xlim(0,2)
+				plt.ylim(22,16)
+				plt.title('{}_{}_{}_Maglightcurve'.format(RA,DEC,P))
+				plt.savefig('/home/901405125/4andy_M31/{}/{}/{}_{}_{}_{}_Maglightcurve.png'.format(M31_field,ss,RA,DEC,P,j))
+				os.system("cp /home/901405125/4andy_M31/{}/{}/{}_{}_{}_{}_Maglightcurve.png /home/901405125/5andy_M31_stdstar/{}_result/Maglightcurve".format(M31_field,ss,RA,DEC,P,j,j))
+				plt.close(fig='all')             
+		                        
+	# solve the fitting curve                                          
+				with open("stdV21_f2m_eq.dat", 'w') as eq:
+				    eq.write("{}".format(str(p0(x))))
+				os.system("cp stdV21_f2m_eq.dat	/home/901405125/5andy_M31_stdstar/{}/{}/".format(b,j))
+
+	# calculate mean Mag of star
+				mean_M0 = np.mean(mag_s)
+		                    
+	# append Periods and Magnitude in list             
+		#               M_err_all.append(dif_m_standard_deviation)                    
+				M0_all.append(mean_M0)
+				P_all.append(P)
+				RA_all.append(RA)
+				DEC_all.append(DEC)
+				
+	# if the solution is out of range, try to using linear funtion to do calibration               
+
+	# save ra,dec M_all and P_all to file
+			
+			M_all = M0_all
+
+			os.chdir("/home/901405125/4andy_M31/{}/".format(M31_field))
+			with open("Cepheid_{}.dat".format(j), 'w') as c_write:
+				if len(M0_all) > 0:
+					for n in range(len(M0_all)):                    
+						c_write.write("{} {} {} {} {}\n".format(M31_field,RA_all[n],DEC_all[n],P_all[n],M_all[n]))
+
+
+	# print L-P relation
+			plt.figure()
+			plot = plt.plot(P_all,M0_all, 'b.',label='Cephieds')
+
+			plt.xlabel('periods')
+			plt.ylabel('abs_Mag')
+			plt.xlim(10,100)
+			plt.ylim(22,16)
+			plt.xscale('log')
+			plt.legend(loc=2) 
+			plt.title('{}_{}21_PLrelation'.format(M31_field,j))
+			plt.savefig('{}_{}21_PLrelation.png'.format(M31_field,j))
+			plt.close(fig='all')             
+
+			os.system("cp *{}*PLrelation* /home/901405125/5andy_M31_stdstar/{}_result/Basic_PSF_V21_F2M/".format(j,j))
+		
+			print('End {}'.format(M31_field))
+		
+			
+		else:
+			print("data incomplete in {}".format(M31_field))
+
+	return M_all,P_all
+
+    
+    
+###################################   
+    
+starttime = datetime.datetime.now()
+
+M_ALL_all = []
+P_ALL_all = []
+
+os.chdir('/home/901405125/5andy_M31_stdstar/')
+
+#M31_field =  glob("")
+M31_field =  ['001','002','008','009','010','011','016','017','018','019','023','024','025','026','027','032','033','034','040','041','042','047','048','049']
+BAND = 'B'
+
+for a,b in enumerate(M31_field):
+	M_ALL = []
+	P_ALL = []    
+	MP_ALL = flux_mag(b)[:] # <- do not process many times
+	MMM = MP_ALL[0] # M_all
+	PPP = MP_ALL[1] # P_all
+
+	for m in MMM:
+		M_ALL.append(m)
+		M_ALL_all.append(m)
+	for p in PPP:
+		P_ALL.append(p)
+		P_ALL_all.append(p)
+
+	# save  M P data
+	N = range(len(M_ALL))
+	os.chdir('/home/901405125/5andy_M31_stdstar/{}_result/Basic_PSF_V21_F2M/'.format(BAND))
+	with open("stdV21_ALL{}_MagP.dat".format(b), 'w') as mp:
+		for n in N:
+			mp.write("{} {}\n".format(M_ALL[n],P_ALL[n]))
+	print(datetime.datetime.now() - starttime)
+
+
+plt.figure()
+plot = plt.plot(P_ALL_all,M_ALL_all, 'b.',label='Cephieds',ms=3)
+
+plt.xlabel('periods')
+plt.ylabel('abs_Mag')
+plt.xlim(10,100)
+plt.ylim(22,16)
+plt.xscale('log')
+plt.legend(loc=2) 
+plt.title('V21_PLrelation')
+plt.savefig('/home/901405125/4andy_M31/V21_PLrelation.png')
+plt.close(fig='all')
+
+
+endtime = datetime.datetime.now()
+print(endtime - starttime)

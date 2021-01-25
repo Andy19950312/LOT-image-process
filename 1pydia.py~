@@ -1,0 +1,204 @@
+# Set the package install location
+#
+import sys
+import os
+import fileinput
+import glob
+import pyraf
+import numpy as np
+sys.path.append('/home/901405125/pyDIA')
+
+use_GPU = False
+from pyDIA import DIA_CPU as DIA
+
+params = DIA.DS.Parameters()
+params.use_GPU = use_GPU
+
+#
+
+
+from glob import glob
+
+# Override parameter defaults if necessary
+#
+params.gain = 1.3
+params.readnoise = 11.2
+params.pixel_min = 0.0
+params.pixel_max = 120000
+
+params.name_pattern = '*.fit'
+params.datekey = 'JD'
+params.use_stamps = False
+params.nstamps = 200
+params.loc_data = '/home/901405125/1main'
+params.loc_output = '/home/901405125/1main/output'
+params.min_ref_images = 1
+params.ref_include_file = '/home/901405125/1main/ref.dat'
+params.n_parallel = 8
+
+params.registration_image = "CCN_M31_020-20161203_141824-V_Asahi_2007_ed_m.fit"
+params.reference_min_seeing = 1.0
+params.reference_max_roundness = 1.3
+
+#
+# Perform the difference imaging, photometry and calibration
+#
+#if not(os.path.exists(params.loc_output)):
+#	DIA.imsub_all_fits(params)
+
+#if not(os.path.exists(params.loc_output+'/calibration.png')):
+#cal.calibrate(params.loc_output)
+
+'''
+params.bdeg = 2
+params.ccd_group_size = 100
+params.cluster_mask_radius = 50
+params.detect_threshold = 4.0
+params.diff_std_threshold = 10.0
+params.do_photometry = True
+params.fft_kernel_threshold = 3.0
+params.fwhm_mult = 6.5
+params.fwhm_section = None
+params.image_list_file = 'images'
+params.iterations = 1
+params.kernel_maximum_radius = 20.0
+params.kernel_minimum_radius = 5.0
+params.make_difference_images = True
+params.mask_cluster = False
+params.pdeg = 0
+params.pixel_rejection_threshold = 3.0
+params.psf_fit_radius = 3.0
+params.psf_profile_type = 'gaussian'
+params.ref_image_list = 'ref.images'
+params.ref_exclude_file = None
+params.reference_min_seeing = 1.0
+params.reference_max_roundness = 1.3
+params.reference_seeing_factor = 1.1
+params.reference_sky_factor = 1.3
+params.registration_image = 
+params.sdeg = 0
+params.sky_degree = 0
+params.sky_subtract_mode = 'percent'
+params.sky_subtract_percent = 0.01
+params.stamp_edge_distance = 40
+params.stamp_half_width = 20
+params.star_detect_sigma = 12
+params.star_file = None
+params.star_file_has_magnitudes = False
+params.star_file_is_one_based = True
+params.star_file_number_match = 10000
+params.star_file_transform_degree = 2
+params.star_reference_image = None
+params.use_fft_kernel_pixels = False
+
+
+
+--------------------------------------------
+Output files
+Most of the output files have prefixes or suffixes appended to the corresponding
+input file names. The important files are:
+
+File name Description
+
+ref.fits 	Reference image
+k_*.fits 	FITS ascii table of the convolution kernel
+d_*.fits	Difference image normalised to ref.fits
+n_*.fits 	Difference image normalised to pixel noise
+r_*.fits 	Registered image
+sm_*.fits 	Saturation mask image
+m_*.fits	Model image
+z_*.fits 	Mask image
+psf.fits 	PSF image determined by DAOphot
+ref.mags 	Stellar magnitudes and positions determined by DAOphot
+ref.flux 	Stellar fluxes measured from ref.fits
+*.flux 		Stellar differential fluxes measured from difference image
+'''
+
+
+
+# go !
+
+DIA.imsub_all_fits(params)
+
+########################################
+
+'''
+
+original params
+
+params.bdeg = 0
+params.ccd_group_size = 100
+params.cluster_mask_radius = 50
+params.datekey = 'MJD-OBS'
+params.detect_threshold = 4.0
+params.diff_std_threshold = 10.0
+params.do_photometry = True
+params.fft_kernel_threshold = 3.0
+params.fwhm_mult = 6.5
+params.fwhm_section = None
+params.gain = 1.0
+params.image_list_file = 'images'
+params.iterations = 1
+params.kernel_maximum_radius = 20.0
+params.kernel_minimum_radius = 5.0
+params.loc_data = '.'
+params.loc_output = '.'
+params.make_difference_images = True
+params.mask_cluster = False
+params.min_ref_images = 3
+params.n_parallel = 1
+params.name_pattern = '*.fits'
+params.nstamps = 200
+params.pdeg = 0
+params.pixel_max = 50000
+params.pixel_min = 0.0
+params.pixel_rejection_threshold = 3.0
+params.psf_fit_radius = 3.0
+params.psf_profile_type = 'gaussian'
+params.readnoise = 1.0
+params.ref_image_list = 'ref.images'
+params.ref_include_file = 'CCN_M31_002-20170828_140329-V_Asahi_2007_ed.fit'
+params.ref_exclude_file = None
+params.reference_min_seeing = 1.0
+params.reference_max_roundness = 1.3
+params.reference_seeing_factor = 1.1
+params.reference_sky_factor = 1.3
+params.registration_image = None
+params.sdeg = 0
+params.sky_degree = 0
+params.sky_subtract_mode = 'percent'
+params.sky_subtract_percent = 0.01
+params.stamp_edge_distance = 40
+params.stamp_half_width = 20
+params.star_detect_sigma = 12
+params.star_file = None
+params.star_file_has_magnitudes = False
+params.star_file_is_one_based = True
+params.star_file_number_match = 10000
+params.star_file_transform_degree = 2
+params.star_reference_image = None
+params.subtract_sky = False
+params.use_fft_kernel_pixels = False
+params.use_GPU = True
+params.use_stamps = False
+
+--------------------------------------------
+Output files
+Most of the output files have prefixes or suffixes appended to the corresponding
+input file names. The important files are:
+
+File name Description
+
+ref.fits 	Reference image
+k_*.fits 	FITS ascii table of the convolution kernel
+d_*.fits	Difference image normalised to ref.fits
+n_*.fits 	Difference image normalised to pixel noise
+r_*.fits 	Registered image
+sm_*.fits 	Saturation mask image
+m_*.fits	Model image
+z_*.fits 	Mask image
+psf.fits 	PSF image determined by DAOphot
+ref.mags 	Stellar magnitudes and positions determined by DAOphot
+ref.flux 	Stellar fluxes measured from ref.fits
+*.flux 		Stellar differential fluxes measured from difference image
+'''

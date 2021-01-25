@@ -1,0 +1,36 @@
+# read reference image date 
+
+import os
+import numpy as np
+from glob import glob
+import pandas as pd
+from astropy.io import fits
+
+M31_field = ['001','009','010','016','017','018','024','032','033','034','040','041','042','047','048','049']
+
+band = ['B','V','R','I']
+band = ['I']
+'''
+for f in M31_field:
+	for b in band:
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(f,b))
+		img = glob('CCN*')[0]
+		
+		print('{} {}'.format(f,img))
+'''
+for f in M31_field:
+	for b in band:
+		os.chdir('/home/901405125/21andy_M31/{}/{}/'.format(f,b))
+		img = glob('CCN*')[0]
+
+		hdul = fits.open('/home/901405125/2andy_M31/{}/{}/{}'.format(f,b,img))
+		E = hdul[0].header['EXPTIME']
+		print('{} {} {}'.format(f,img,E))
+'''
+for f in M31_field:
+	for b in band:
+		os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(f,b))
+		img = glob('CCN*')[0]
+		date = img.split('_')[2].split('-')[1]
+		print(date)
+'''

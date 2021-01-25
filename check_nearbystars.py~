@@ -1,0 +1,44 @@
+import os
+import numpy as np
+from glob import glob
+
+
+# allstar for Cepheids stars
+os.system('mkdir /home/901405125/4andy_M31/cepheid_V_img')
+os.chdir("/home/901405125/4andy_M31/")
+
+allfield = glob("0*")
+#allfield = ['001']
+
+band = ['V']
+
+for f in allfield:
+	os.chdir("/home/901405125/4andy_M31/{}".format(f))
+	stars = glob("M31_*")
+	for s in stars:
+		for b in band:
+			os.chdir("/home/901405125/4andy_M31/{}/{}/{}/".format(f,s,b))
+			with open("/home/901405125/4andy_M31/{}/{}/{}/ref_list".format(f,s,b),'r') as ref:
+				ref = ref.readlines()
+			ref = ref[0].replace('\n','')
+			print(ref)
+
+			os.system("cp /home/901405125/4andy_M31/{}/{}/{}/{}  /home/901405125/4andy_M31/cepheid_V_img".format(f,s,b,ref))
+			os.system("mv /home/901405125/4andy_M31/cepheid_V_img/{} /home/901405125/4andy_M31/cepheid_V_img/{}.fit".format(ref,s))
+
+# ref image
+for f in allfield:
+	for b in band:
+		os.system("mkdir /home/901405125/5andy_M31_stdstar/{}/{}/std_data".format(f,b)) # to save  allstar processed doc files
+		
+		os.chdir("/home/901405125/5andy_M31_stdstar/{}/{}".format(f,b))
+		
+		if len(glob('/home/901405125/5andy_M31_stdstar/{}/{}/allstarinhere*')) != 1: # if no stdstar position file in here, do the process
+			with open("/home/901405125/5andy_M31_stdstar/{}/{}/ref_{}.dat".format(f,b,b),'r') as ref:
+				ref = ref.readlines()
+			ref = ref[0].replace('\n','').replace('_ed','_r')
+
+
+
+
+

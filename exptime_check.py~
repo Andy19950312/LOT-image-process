@@ -1,0 +1,105 @@
+# check exposure time of images, then multiply a constent to flux .
+
+from glob import glob
+import os
+import astropy
+from astropy.io import fits
+import numpy as np
+import pyraf
+from pyraf import iraf
+import astropy.wcs as wcs
+
+os.chdir('/home/901405125/21andy_M31')
+
+##############################
+
+allfield = ['001','009','010','016','017','018','024','032','033','034','040','041','042','047','048','049']
+for a in allfield:
+	os.system("cp -r /home/901405125/2andy_M31/{} /home/901405125/21andy_M31")
+
+
+band = ['B','V','R','I']
+
+# check exposure time
+exp150,exp240,exp300,exp360 = [],[],[],[]
+midf150,midf240,midf300,midf360 = [],[],[],[]
+
+os.chdir('/home/901405125/21andy_M31')
+allfield = glob("0*")
+for a in allfield:
+	for b in band:
+		os.chdir('/home/901405125/21andy_M31/{}/{}'.format(a,b))
+		images = glob("CCN*")
+		for i in images:
+			hdul = fits.open('/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+			E = hdul[0].header['EXPTIME']
+			
+# read adu		
+			#data = hdul[0].data
+			#data = [f for f in data[:]]
+			#midf = np.median([f for f in data])
+
+# normalize exposure time to 1s
+			if int(E) == 300:
+				exp300.append(i)
+				#midf300.append(midf)
+				iraf.images.imutil.imarith(operand1='/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i),\
+				op='/',operand2= 300,result= '/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+
+			elif int(E) == 150:
+				exp150.append(i)
+				#midf150.append(midf)
+				iraf.images.imutil.imarith(operand1='/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i),\
+				op='/',operand2= 150,result= '/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+
+			elif int(E) == 240:
+				exp240.append(i)
+				#midf240.append(midf)
+				iraf.images.imutil.imarith(operand1='/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i),\
+				op='/',operand2= 240,result= '/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+
+			elif int(E) == 360:
+				exp360.append(i)
+				#midf360.append(midf)
+				iraf.images.imutil.imarith(operand1='/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i),\
+				op='/',operand2= 360,result= '/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+
+			else:
+				print(i)
+			
+			iraf.images.imutil.imarith(operand1='/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i),\
+			op='*',operand2= 300,result= '/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i))
+
+			hdul.close()
+
+			data, header = fits.getdata('/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i), header=True)
+			header['EXPTIME'] = 300
+			header['EXPOSURE'] = 300
+			fits.writeto('/home/901405125/21andy_M31/{}/{}/{}'.format(a,b,i), data, header, clobber=True)
+
+print('150', len(exp150))
+print('240', len(exp240))
+print('300', len(exp300))
+print('360', len(exp360))
+
+#print('150', np.average(midf150))
+#print('240', np.average(midf240))
+#print('300', np.average(midf300))
+#print('360', np.average(midf360))
+'''
+###############################
+os.chdir('/home/901405125/3andy_M31')
+allfield = glob("0*")
+for a in allfield:
+	os.chdir('/home/901405125/3andy_M31/{}'.format(a))
+	star = glob('M31*')
+	for s in star:		
+		for b in band:
+			os.chdir('/home/901405125/3andy_M31/{}/{}/{}'.format(a,s,b))
+			images = glob("CCN*")
+			for i in images:
+				iraf.images.imutil.imarith(operand1='/home/901405125/3andy_M31/{}/{}/{}/{}'.format(a,s,b,i),\
+				op='*',operand2= 90000,result= '/home/901405125/3andy_M31/{}/{}/{}/{}'.format(a,s,b,i))
+			print(i)
+'''				
+

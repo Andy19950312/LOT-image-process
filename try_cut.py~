@@ -1,0 +1,15 @@
+import astropy.io.fits as fits
+import astropy.wcs as wcs
+import numpy as np
+import os
+
+#filename = os.path.join(wcs.__path__[0], 'CCN_M31_024-20141231-B_Asahi_2007_r.fit')
+
+hdulist = fits.open('CCN_M31_024-20141231-B_Asahi_2007_r.fit')
+w = wcs.WCS(hdulist[0].header, hdulist)
+
+hdulist.close()
+
+x, y = w.all_world2pix(10.2400, +41.2889, 1)
+print(x)
+print(y)

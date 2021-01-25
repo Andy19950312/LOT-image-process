@@ -1,0 +1,72 @@
+import os
+import math
+import scipy
+import datetime
+import numpy as np
+from glob import glob
+from pyraf import iraf
+from astropy.io import fits
+from decimal import Decimal
+
+
+##############################
+M31_field =  ['001','002','008','009','010','011','016','017','018','019','023','024','025','026','027','031','032','033','034','040','041','042','047','048','049']
+
+band = ['B','V','R','I']
+ab = 50 #150
+
+time1 = datetime.datetime.now()
+def trim_stdstar(b,j):
+
+	os.chdir('/home/901405125/5andy_M31_stdstar/{}/'.format(b))
+	os.chdir('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(b,j))
+	print('/home/901405125/5andy_M31_stdstar/{}/{}/'.format(b,j))
+
+	with open("stdV21.dat","r") as std:
+	   	std = std.readlines()
+
+	with open("ref_{}.dat".format(j), 'r') as ref:
+		ref = ref.readlines()
+	ref = ref[0].replace("\n","").replace("_ed","_r")
+
+	os.system('mkdir stdstar') 
+		
+	for s,ss in enumerate(std):
+		os.system('cp /home/901405125/5andy_M31_stdstar/{}/{}/{} /home/901405125/1main'.format(b,j,ref))
+		os.chdir('/home/901405125/1main')
+		x = int(ss.split( )[0])
+		y = int(ss.split( )[1])
+
+		V = float(ss.split( )[4])
+		V_err = float(ss.split( )[5])
+
+		B = float(ss.split( )[6]) + V
+		B_err = np.sqrt(float(ss.split( )[7])**2 + V_err**2 )
+		R = V - float(ss.split( )[8])
+		R_err = np.sqrt(float(ss.split( )[9])**2 + V_err**2 )
+		I = R - float(ss.split( )[10])
+		I_err = np.sqrt(float(ss.split( )[11])**2 + R_err**2 )
+	
+		if j == 'B':
+			mag, mag_err, = B, B_err
+		elif j == 'V':
+			mag, mag_err, = V, V_err
+		elif j == 'R':
+			mag, mag_err, = R, R_err
+		elif j == 'I':
+			mag, mag_err, = I, I_err
+
+		if ab<x<(2048-ab) and ab<y<(2048-ab): # don't trimming outer region of images
+			iraf.images.imutil.imcopy(input= '{}[{}:{},{}:{}]'.format(ref,x-ab,x+ab,y-ab,y+ab),\
+			output= 'M31_std_{}_{}_{}.fit'.format(j, mag, mag_err))
+						
+			os.chdir('/home/901405125/5andy_M31_stdstar/')
+	os.system('mv /home/901405125/1main/M31_std_{}*.fit /home/901405125/5andy_M31_stdstar/{}/{}/stdstar'.format(j,b,j))
+	os.system('rm /home/901405125/1main/{}'.format(ref))
+	
+
+for a,b in enumerate(M31_field):
+	for i,j in enumerate(band):
+		trim_stdstar(b,j)
+time2 = datetime.datetime.now()
+print(time2 -time1)

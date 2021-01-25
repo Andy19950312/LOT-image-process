@@ -1,0 +1,179 @@
+import sys
+import os
+import fileinput
+import pyraf
+import numpy as np
+import glob
+from pyraf import iraf
+
+sys.path.append('/home/901405125/pyDIA')
+
+use_GPU = False
+from pyDIA import DIA_CPU as DIA
+
+params = DIA.DS.Parameters()
+params.use_GPU = use_GPU
+
+#from pyDIA import calibration_functions as cf
+#lightcurve = cf.plot_lightcurve()
+
+###
+
+field = '024'
+
+band = ['B','V','R','I']
+band = ['V']
+
+###
+
+for i,j in enumerate(band):
+
+#	os.system('cp /home/901405125/2andy_M31/{}/{}/* /home/901405125/1main'.format(field,j))
+	filename = "ref_{}.dat".format(j)
+	with open(filename) as fn:
+		ref_image = fn.readlines()
+	for ref in ref_image:
+		ref = ref.replace('\n','')
+
+
+#	os.system('python 1pydia.py') # here to do pydia #
+
+#	Override parameter defaults if necessary
+#	
+	params.gain = 1.3 #1.3
+	params.readnoise = 11.2    #11.2
+	params.pixel_min = 5.0      #10
+	params.pixel_max = 50000	#50000
+	params.name_pattern = '*.fit'   
+	params.datekey = 'JD'      #JD
+	params.loc_data = '/home/901405125/1main'
+	params.loc_output = '/home/901405125/1main/output'
+	params.min_ref_images = 1  
+	params.n_parallel = 4
+	params.sky_subtract_mode = 'default'
+	params.pdeg = 1
+	params.sdeg = 1
+	params.bdeg = 1	
+	params.sky_degree = 1
+#	ref = "CCN_M31_032-20141231-B_Asahi_2007_ed.fit"
+
+	params.registration_image = "{}".format(ref)
+	params.star_reference_image = "{}".format(ref)
+# try different params
+	params.use_stamps = False
+
+	
+#######  go !
+	DIA.imsub_all_fits(params)
+
+#######  pyDIA. Done
+
+
+	os.system('mkdir output_{}_{}'.format(field,j))
+	os.system('mv /home/901405125/1main/output/* /home/901405125/1main/output_{}_{}'.format(field,j))
+	os.system('mv /home/901405125/1main/CCN*.fit /home/901405125/1main/output_{}_{}'.format(field,j))
+#	os.system('rm ref*.dat fwhm* dates.dat')
+
+
+print('all finished')
+
+
+######## do iraf images register
+'''	iraf.images.immatch.wregister('@CCN.dat',referenc = "@ref.dat" ,output='@CCN.dat//_m')
+	
+	os.system('rm /home/901405125/1main/CCN*_ed.fit')#only want _m.fit
+	for fileName in os.listdir("."):
+  		os.rename(fileName, fileName.replace("_ed_m.fit", "_ed.fit")) #change name to original file's name
+
+	files = glob.glob("CCN*.fit")
+	np.savetxt('CCN.dat',files, fmt='%s')
+'''
+
+'''
+B_ref = ["CCN_M31_020-20171108_154745-B_Asahi_2007_ed.fit"]#20171108
+V_ref = ["CCN_M31_020-20161203_141824-V_Asahi_2007_ed.fit"]#20161203
+R_ref = ["CCN_M31_020-20161203_142348-R_Asahi_2007_ed.fit"]#20161203
+I_ref = ["CCN_M31_020-20180903_133423-I_10349_ed.fit"]#20180903
+'''
+
+'''
+
+original params
+
+params.bdeg = 0
+params.ccd_group_size = 100
+params.cluster_mask_radius = 50
+params.datekey = 'MJD-OBS'
+params.detect_threshold = 4.0
+params.diff_std_threshold = 10.0
+params.do_photometry = True
+params.fft_kernel_threshold = 3.0
+params.fwhm_mult = 6.5
+params.fwhm_section = None
+params.gain = 1.0
+params.image_list_file = 'images'
+params.iterations = 1
+params.kernel_maximum_radius = 20.0		## bad change for different params
+params.kernel_minimum_radius = 5.0		## bad change for different params
+params.loc_data = '.'
+params.loc_output = '.'
+params.make_difference_images = True
+params.mask_cluster = False
+params.min_ref_images = 3
+params.n_parallel = 1
+params.name_pattern = '*.fits'
+params.nstamps = 200                           ## no change for different params
+params.pdeg = 0
+params.pixel_max = 50000
+params.pixel_min = 0.0
+params.pixel_rejection_threshold = 3.0
+params.psf_fit_radius = 3.0
+params.psf_profile_type = 'gaussian'
+params.readnoise = 1.0
+params.ref_image_list = 'ref.images'
+params.ref_include_file = 'CCN_M31_002-20170828_140329-V_Asahi_2007_ed.fit'
+params.ref_exclude_file = None
+params.reference_min_seeing = 1.0        	
+params.reference_max_roundness = 1.3		## bad change for different params		
+params.reference_seeing_factor = 1.1		## bad change for different params
+params.reference_sky_factor = 1.3		## bad change for different params
+params.registration_image = None
+params.sdeg = 0
+params.sky_degree = 0
+params.sky_subtract_mode = 'percent'
+params.sky_subtract_percent = 0.01
+params.stamp_edge_distance = 40
+params.stamp_half_width = 20
+params.star_detect_sigma = 12                   ## no change for different params
+params.star_file = None
+params.star_file_has_magnitudes = False
+params.star_file_is_one_based = True
+params.star_file_number_match = 10000
+params.star_file_transform_degree = 2
+params.star_reference_image = None		
+params.subtract_sky = False			## no change for different params
+params.use_fft_kernel_pixels = False
+params.use_GPU = True
+params.use_stamps = False
+
+--------------------------------------------
+Output files
+Most of the output files have prefixes or suffixes appended to the corresponding
+input file names. The important files are:
+
+File name Description
+
+ref.fits 	Reference image
+k_*.fits 	FITS ascii table of the convolution kernel
+d_*.fits	Difference image normalised to ref.fits
+n_*.fits 	Difference image normalised to pixel noise
+r_*.fits 	Registered image
+sm_*.fits 	Saturation mask image
+m_*.fits	Model image
+z_*.fits 	Mask image
+psf.fits 	PSF image determined by DAOphot
+ref.mags 	Stellar magnitudes and positions determined by DAOphot
+ref.flux 	Stellar fluxes measured from ref.fits
+*.flux 		Stellar differential fluxes measured from difference image
+'''
+

@@ -1,0 +1,86 @@
+# find star position Accuratly by sextraction
+
+from astropy.io import fits
+import glob
+import numpy as np
+import os
+import re
+
+
+os.chdir("/home/901405125/3andy_M31/")
+
+allfields0 = glob.glob("00*")
+allfields1 = glob.glob("01*")
+allfields2 = glob.glob("02*")
+allfields3 = glob.glob("03*")
+allfields4 = glob.glob("04*")
+
+
+def findposition(allfields):
+
+	for f,fn in enumerate(allfields):
+		os.chdir("/home/901405125/3andy_M31/{}".format(fn))
+		stars = glob.glob("M31_*")
+
+		for s,ss in enumerate(stars):
+			os.chdir("/home/901405125/3andy_M31/{}/{}".format(fn,ss))
+			bands = glob.glob("*")
+
+			for b,bb in enumerate(bands):
+				os.chdir("/home/901405125/3andy_M31/{}/{}/{}".format(fn,ss,bb))
+
+	# photometry ref.fit by SExtractor
+				os.system("mv ref_{}.dat ref_list".format(bb))
+				with open("ref_list", 'r') as ref:
+					ref = ref.readlines()
+				ref = ref[0].replace("\n","")
+				os.system('pwd')
+				os.system("cp {} /home/901405125/1main".format(ref))
+				os.chdir("/home/901405125/1main")
+
+				os.system("sex {}".format(ref))
+				os.chdir("/home/901405125/3andy_M31/{}/{}/{}/".format(fn,ss,bb))
+				os.system("mv /home/901405125/1main/output.cat /home/901405125/3andy_M31/{}/{}/{}/".format(fn,ss,bb))
+				os.system("rm /home/901405125/1main/*CCN*fit")
+
+	# read output.cat, find the flux at 150,150 position
+
+
+				with open("phot.data", 'w') as ph:
+					ph.write('150.0 150.0 150 150 lc1.data\n')
+
+				with open("output.cat", 'r') as line:
+					line = line.readlines()
+	
+
+				for i in line:
+					x = float(re.sub('\s+', ' ',i.strip()).split(" ")[0])
+					y = float(re.sub('\s+', ' ',i.strip()).split(" ")[1])	
+					ref_flux = []
+
+					if 147 < x < 153 and 147 < y < 153:
+						ref_flux.append(i)
+						if len(ref_flux) > 1:
+							np.savetxt("ref_flux_data>2_{}.dat".format(ref),"{}".format(ss,ref), fmt='%s')
+							system("cp ref_flux_data* /home/901405125/1main")
+
+							np.savetxt("ref_flux.data", ref_flux, fmt='%s')
+
+						elif len(ref_flux) == 1:
+							# try compare 150:150 and x,y from SEX
+							with open("phot.data", 'w') as ph:
+								ph.write('{} {} {} {} lc1.data\n'.format(x,y,int(round(x)),int(round(y))))
+							print(x,y)
+
+
+findposition(allfields0)
+findposition(allfields1)
+findposition(allfields2)
+findposition(allfields3)
+findposition(allfields4)
+
+
+
+
+
+

@@ -1,0 +1,23 @@
+import pyraf
+import os
+import glob
+import numpy as np
+import astropy
+
+#--- loads image data ---
+Image = ["/home/901405125/2andy_M31/001/B/CCN_M31_001-20150913-B_Asahi_2007_dupe-1_r.fit"]
+data = astro.get_imagedata(Image)
+
+#--- display image ---
+fig, ax = astro.display(data)
+while 1:
+    print
+    xy = astro.select(fig, ax, 1)
+    x,y = xy[0]
+    param = astro.fit_gauss_circular([x-10,y-10],data[x-10:x+11, y-10:y+11])
+    print("floor (in ADU)   = {}".format(param[1]))
+    print("height (in ADU)  = {}".format(param[2]))
+    print("x0 (in pixels)   = {}".format(param[3]))
+    print("y0 (in pixels)   = {}".format(param[4]))
+    print("fwhm (in pixels) = {}".format(param[5]))
+
